@@ -14,9 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, generator: "Visual Studio 17 2022" }
-          - { os: macos-latest,   generator: "Xcode" }
-          - { os: ubuntu-latest,  generator: "Ninja" }
+          # Windows: no -G, CMake picks the newest Visual Studio on the runner
+          - { os: windows-latest, cmake_args: "-A x64" }
+          - { os: macos-latest,   cmake_args: "-G Xcode" }
+          - { os: ubuntu-latest,  cmake_args: "-G Ninja" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +31,7 @@ jobs:
             libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
 
       - name: Configure
-        run: cmake -S . -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build ${{ matrix.cmake_args }} -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
