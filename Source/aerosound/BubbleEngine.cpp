@@ -92,8 +92,10 @@ void BubbleEngine::process (const float* in, float* outL, float* outR, int n) no
         ++writeIdx;
 
         const float tr = det.process (x);
-        const float lvl = std::min (det.getLevel() * 4.0f, 1.0f);      // 0…1 follow
-        const float amp = std::sqrt (lvl);                               // bubbles stay audible on quiet parts
+        const float lvl = std::min (det.getLevel() * 4.0f, 1.0f);      // 0…1 density follow
+        // Bubble amplitude tracks the input level (≈ input peak level at full
+        // Bubbles), so they never eat the mix's headroom.
+        const float amp = std::min (det.getLevel() * 3.2f, 0.6f);
 
         // ---- continuous fizz (Poisson) ----
         if (lvl > 0.01f && rng.uniform() < ratePerSample * lvl)

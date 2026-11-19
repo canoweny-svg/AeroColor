@@ -16,4 +16,4 @@ ctest --test-dir build-mac -C "$CONFIG" --output-on-failure
 
 echo
 echo "Artefacts:"
-find build-mac/AeroGlow_artefacts/"$CONFIG" -maxdepth 2 -name "*.vst3" -o -maxdepth 2 -name "*.component" -o -maxdepth 2 -name "*.aaxplugin" -o -maxdepth 2 -name "*.app"
+find build-mac/AeroSound_artefacts/"$CONFIG" -maxdepth 2 -name "*.vst3" -o -maxdepth 2 -name "*.component" -o -maxdepth 2 -name "*.aaxplugin" -o -maxdepth 2 -name "*.app"

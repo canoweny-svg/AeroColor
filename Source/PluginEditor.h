@@ -1,38 +1,28 @@
 #pragma once
 // =============================================================================
-//  PluginEditor — single-window UI.
+//  PluginEditor — AEROSOUND single-window UI (760×560 base, scalable 50–200 %)
 //
-//   ┌───────────────────────────────────────────────────────────────────────┐
-//   │ AeroGlow SATURATOR      [<] [ preset name ▾ ] [>] [Save]     (BYPASS) │
-//   │ ┌──────────── glass ─────────────────┐ ┌──── glass ─────┐             │
-//   │ │            SATURATION              │ │  IN      OUT   │             │
-//   │ │         ( big aqua orb )           │ │  ▮▮      ▮▮    │             │
-//   │ │     0 dB               +36 dB      │ │ (AUTO GAIN)    │             │
-//   │ │ [ LUMINOUS WARMTH | NEON CRUNCH ]  │ │ (LIMITER)  [OS]│             │
-//   │ └────────────────────────────────────┘ └────────────────┘             │
-//   │ ┌ INPUT  MIX  TONE  BIAS  HIGH CUT  LOW PROTECT  OUTPUT ─ glass ───┐  │
-//   └───────────────────────────────────────────────────────────────────────┘
-//
-//  All widgets live in a fixed 720×560 "base" panel that is scaled with an
-//  AffineTransform, so the editor is freely resizable (50 %…200 %) with a
-//  locked aspect ratio and stays vector-sharp.
-//  Parameter binding: stock JUCE Slider/Button/ComboBox attachments + a
-//  ParameterAttachment for the custom ModeSwitch.
+//   ┌ AEROSOUND           [<] [ preset ▾ ] [>] [Save]              (BYPASS) ┐
+//   │ ┌ AERO ─────┐ ┌ aquarium XY pad ───────────┐ ┌ OUT  MIX   ┐            │
+//   │ │  (orb)    │ │  GLASS ←  pearl  → BUBBLES │ │ ▮▮   DECAY ┤            │
+//   │ │ Key Chord │ │  (animated bubbles)  AIR ↑ │ │      OUTPUT│            │
+//   │ └───────────┘ └────────────────────────────┘ └────────────┘            │
+//   │ ┌ GLASS: Ring Strike Sparkle  [Register] ┐ ┌ BUBBLES: Fizz Size Rise Grain Splash ┐
 // =============================================================================
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "PluginProcessor.h"
 #include "gui/AeroLookAndFeel.h"
 #include "gui/LevelMeter.h"
-#include "gui/ModeSwitch.h"
+#include "gui/XYPad.h"
 
-class AeroGlowEditor final : public juce::AudioProcessorEditor, private juce::Timer
+class AeroSoundEditor final : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    static constexpr int kBaseW = 720, kBaseH = 560;
+    static constexpr int kBaseW = 760, kBaseH = 560;
 
-    explicit AeroGlowEditor (AeroGlowAudioProcessor&);
-    ~AeroGlowEditor() override;
+    explicit AeroSoundEditor (AeroSoundAudioProcessor&);
+    ~AeroSoundEditor() override;
 
     void paint (juce::Graphics&) override {}
     void resized() override;
@@ -42,7 +32,6 @@ private:
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
-    // Fixed-size background panel (metal, glass, captions). Children sit on it.
     class Panel final : public juce::Component
     {
     public:
@@ -52,47 +41,41 @@ private:
         juce::Image metal;
     };
 
-    struct SmallKnob
+    struct Knob
     {
         juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
-        juce::Label  caption;
+        juce::Label caption;
         std::unique_ptr<SliderAttachment> attachment;
+    };
+    struct Combo
+    {
+        juce::ComboBox box;
+        std::unique_ptr<ComboAttachment> attachment;
     };
 
     void timerCallback() override;
-    void setupSlider (juce::Slider&, const char* paramId, const juce::String& tooltip);
+    void addKnob (Knob&, const char* paramId, const juce::String& caption, const juce::String& tip, bool big = false);
+    void addCombo (Combo&, const char* paramId, const juce::String& tip);
     void layout();
     void showPresetMenu();
     void showSaveDialog();
     void refreshPresetName();
 
-    AeroGlowAudioProcessor& proc;
+    AeroSoundAudioProcessor& proc;
     aero::gui::AeroLookAndFeel lnf;
     juce::TooltipWindow tooltips { this, 600 };
-
     Panel panel;
 
-    juce::Slider saturation { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::NoTextBox };
-    std::unique_ptr<SliderAttachment> saturationAttachment;
+    Knob aero, ring, strike, sparkle, fizz, size, rise, grain, splash, mix, decay, output;
+    Combo key, chord, reg;
+    std::unique_ptr<aerosound::gui::XYPad> pad;
+    aero::gui::LevelMeter outMeter { "OUT" };
 
-    enum KnobIndex { kInput, kMix, kTone, kBias, kHighCut, kLowProtect, kOutput, kNumKnobs };
-    std::array<SmallKnob, kNumKnobs> knobs;
-
-    std::unique_ptr<aero::gui::ModeSwitch> modeSwitch;
-
-    juce::ToggleButton bypassButton { "BYPASS" }, autoGainButton { "AUTO GAIN" }, limiterButton { "LIMITER" };
-    std::unique_ptr<ButtonAttachment> bypassAttachment, autoGainAttachment, limiterAttachment;
-
-    juce::ComboBox oversamplingBox;
-    std::unique_ptr<ComboAttachment> oversamplingAttachment;
-
-    aero::gui::LevelMeter inMeter { "IN" }, outMeter { "OUT" };
-
+    juce::ToggleButton bypassButton { "BYPASS" };
+    std::unique_ptr<ButtonAttachment> bypassAttachment;
     juce::TextButton prevButton { "<" }, nextButton { ">" }, presetButton, saveButton { "Save" };
     std::unique_ptr<juce::FileChooser> fileChooser;
-
-    int lastMode = -1;
     double lastTick = 0.0;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AeroGlowEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AeroSoundEditor)
 };

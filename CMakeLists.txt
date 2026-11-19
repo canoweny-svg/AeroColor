@@ -22,7 +22,7 @@ if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
 endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 
-project(AeroGlow VERSION 1.0.0 LANGUAGES C CXX)
+project(AeroSound VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -113,13 +113,13 @@ if(AEROGLOW_BUILD_PLUGIN)
         list(APPEND AEROGLOW_FORMATS AAX)
     endif()
 
-    juce_add_plugin(AeroGlow
-        COMPANY_NAME                "AeroGlow Audio"
-        COMPANY_WEBSITE             "https://example.com/aeroglow"
-        BUNDLE_ID                   com.aeroglowaudio.aeroglow
-        PLUGIN_MANUFACTURER_CODE    Aero          # ASSUMPTION: placeholder 4-char codes.
-        PLUGIN_CODE                 AgSt          # Register your own before shipping.
-        PRODUCT_NAME                "AeroGlow Saturator"
+    juce_add_plugin(AeroSound
+        COMPANY_NAME                "AeroSound"
+        COMPANY_WEBSITE             "https://example.com/aerosound"
+        BUNDLE_ID                   com.aerosound.aerosound
+        PLUGIN_MANUFACTURER_CODE    AeSn          # ASSUMPTION: placeholder 4-char codes.
+        PLUGIN_CODE                 AeSd          # Register your own before shipping.
+        PRODUCT_NAME                "AEROSOUND"
         FORMATS                     ${AEROGLOW_FORMATS}
         IS_SYNTH                    FALSE
         NEEDS_MIDI_INPUT            FALSE
@@ -127,38 +127,35 @@ if(AEROGLOW_BUILD_PLUGIN)
         IS_MIDI_EFFECT              FALSE
         EDITOR_WANTS_KEYBOARD_FOCUS FALSE
         COPY_PLUGIN_AFTER_BUILD     FALSE         # set TRUE to auto-install into system plugin folders
-        VST3_CATEGORIES             "Fx" "Distortion"
+        VST3_CATEGORIES             "Fx" "Reverb" "Modulation"
         AU_MAIN_TYPE                kAudioUnitType_Effect
-        AAX_CATEGORY                AAX_ePlugInCategory_Harmonic
+        AAX_CATEGORY                AAX_ePlugInCategory_SoundField
         HARDENED_RUNTIME_ENABLED    TRUE
         MICROPHONE_PERMISSION_ENABLED TRUE)        # standalone needs mic access on macOS
 
-    juce_add_binary_data(AeroGlowPresets SOURCES
-        "Presets/Glass Pad Shimmer.aerosat"
-        "Presets/Neon Drum Bus.aerosat"
-        "Presets/Sunlit Vocal.aerosat")
+    file(GLOB AEROSOUND_PRESET_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Presets/*.aerosound")
+    juce_add_binary_data(AeroSoundPresets SOURCES ${AEROSOUND_PRESET_FILES})
 
-    target_sources(AeroGlow PRIVATE
+    target_sources(AeroSound PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/Parameters.cpp
         Source/PresetManager.cpp
         Source/gui/AeroLookAndFeel.cpp
-        Source/gui/ModeSwitch.cpp
-        Source/gui/LevelMeter.cpp)
+        Source/gui/LevelMeter.cpp
+        Source/gui/XYPad.cpp)
 
-    target_compile_definitions(AeroGlow PUBLIC
+    target_compile_definitions(AeroSound PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0)   # no-op on JUCE 8+ (splash removed); kept for JUCE 7 builds
 
-    target_link_libraries(AeroGlow
+    target_link_libraries(AeroSound
         PRIVATE
-            AeroGlowDsp
-            AeroGlowPresets
+            AeroSoundDsp
+            AeroSoundPresets
             juce::juce_audio_utils
-            juce::juce_dsp
         PUBLIC
             juce::juce_recommended_config_flags
             juce::juce_recommended_lto_flags
@@ -166,37 +163,34 @@ if(AEROGLOW_BUILD_PLUGIN)
 
     # -------------------------------------------------------------------------
     #  Host smoke test: loads the *built* plugin through JUCE's VST3/AU hosting
-    #  (like a DAW), automates it, round-trips state and snapshots the editor.
+    #  (like a DAW), automates it, round-trips state, opens the editor.
     # -------------------------------------------------------------------------
     option(AEROGLOW_BUILD_HOST_TEST "Build the plugin-hosting smoke test" ON)
     if(AEROGLOW_BUILD_HOST_TEST)
-        juce_add_console_app(AeroGlowHostTest PRODUCT_NAME "AeroGlowHostTest")
-        target_sources(AeroGlowHostTest PRIVATE Tests/HostSmokeTest.cpp)
-        target_compile_definitions(AeroGlowHostTest PRIVATE
+        juce_add_console_app(AeroSoundHostTest PRODUCT_NAME "AeroSoundHostTest")
+        target_sources(AeroSoundHostTest PRIVATE Tests/HostSmokeTest.cpp)
+        target_compile_definitions(AeroSoundHostTest PRIVATE
             JUCE_PLUGINHOST_VST3=1
             JUCE_PLUGINHOST_AU=1
             JUCE_MODAL_LOOPS_PERMITTED=1
             JUCE_WEB_BROWSER=0
             JUCE_USE_CURL=0)
-        target_link_libraries(AeroGlowHostTest PRIVATE
+        target_link_libraries(AeroSoundHostTest PRIVATE
             juce::juce_audio_utils
             juce::juce_recommended_config_flags)
-        add_dependencies(AeroGlowHostTest AeroGlow_VST3)
+        add_dependencies(AeroSoundHostTest AeroSound_VST3)
 
-        # In-process editor renderer (README screenshots / visual check).
-        # Not built on Windows: JUCE's console-style JUCEApplicationBase::main
-        # entry point isn't available there (docs tool only, not needed to ship).
-        # Links the plugin's shared-code library directly, so it reuses the
-        # already-compiled JUCE modules (no duplicate module objects).
+        # In-process editor renderer (screenshots). Not on Windows: JUCE's
+        # console-style JUCEApplicationBase::main isn't available there.
       if(NOT WIN32)
-        add_executable(AeroGlowSnapshot Tests/EditorSnapshot.cpp)
-        target_compile_definitions(AeroGlowSnapshot PRIVATE
-            $<TARGET_PROPERTY:AeroGlow,INTERFACE_COMPILE_DEFINITIONS>
-            $<TARGET_PROPERTY:AeroGlow,COMPILE_DEFINITIONS>)
-        target_include_directories(AeroGlowSnapshot PRIVATE
-            $<TARGET_PROPERTY:AeroGlow,INCLUDE_DIRECTORIES>)
-        target_compile_features(AeroGlowSnapshot PRIVATE cxx_std_20)
-        target_link_libraries(AeroGlowSnapshot PRIVATE AeroGlow)
+        add_executable(AeroSoundSnapshot Tests/EditorSnapshot.cpp)
+        target_compile_definitions(AeroSoundSnapshot PRIVATE
+            $<TARGET_PROPERTY:AeroSound,INTERFACE_COMPILE_DEFINITIONS>
+            $<TARGET_PROPERTY:AeroSound,COMPILE_DEFINITIONS>)
+        target_include_directories(AeroSoundSnapshot PRIVATE
+            $<TARGET_PROPERTY:AeroSound,INCLUDE_DIRECTORIES>)
+        target_compile_features(AeroSoundSnapshot PRIVATE cxx_std_20)
+        target_link_libraries(AeroSoundSnapshot PRIVATE AeroSound)
       endif()
     endif()
 endif()

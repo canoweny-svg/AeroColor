@@ -1,67 +1,61 @@
 #pragma once
 // =============================================================================
-//  Parameters.h — every host-visible parameter, its ID, range and default.
+//  Parameters.h — AEROSOUND host parameters (IDs are a stable contract:
+//  never rename one; add new IDs instead).
 //
-//  IDs are part of the saved-state / automation contract: NEVER rename one.
-//  If a range must change incompatibly, add a new ID and bump kParamVersion
-//  for that parameter (JUCE uses the version hint for AU/VST3 ordering).
+//  Macro layer → engine levels (see Snapshot::read):
+//      glass   level = AERO · min(1, 2·(1 − balance))
+//      bubbles level = AERO · min(1, 2·balance)
+//      space   level = AERO · air
+//  so the XY pad (balance, air) and the AERO knob are all most people need.
 // =============================================================================
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include "dsp/SaturationProcessor.h"
+#include "aerosound/AeroSoundProcessor.h"
 
-namespace aero::params
+namespace aerosound::params
 {
-inline constexpr int kParamVersion = 1;
+inline constexpr int kVersion = 1;
 
 namespace id
 {
-    inline constexpr const char* inputGain    = "inputGain";
-    inline constexpr const char* drive        = "drive";        // the big "Saturation" knob
-    inline constexpr const char* mix          = "mix";
-    inline constexpr const char* tone         = "tone";
-    inline constexpr const char* bias         = "bias";
-    inline constexpr const char* mode         = "mode";
-    inline constexpr const char* highCut      = "highCut";
-    inline constexpr const char* lowProtect   = "lowProtect";
-    inline constexpr const char* outputGain   = "outputGain";
-    inline constexpr const char* autoGain     = "autoGain";
-    inline constexpr const char* limiter      = "limiter";
-    inline constexpr const char* oversampling = "oversampling";
-    inline constexpr const char* bypass       = "bypass";
-}
-
-// Defaults (documented assumptions — see README "Parameters")
-namespace defaults
-{
-    inline constexpr float inputGain  = 0.0f;
-    inline constexpr float drive      = 18.0f;     // "mid" of 0…36 dB (Neon is internally −6 dB)
-    inline constexpr float mix        = 50.0f;     // % — spec: 50 % default
-    inline constexpr float tone       = 0.0f;
-    inline constexpr float bias       = 0.0f;
-    inline constexpr float highCut    = 12000.0f;  // Hz, Neon fizz control
-    inline constexpr float lowProtect = 90.0f;     // Hz, Neon bass protection
-    inline constexpr float outputGain = 0.0f;
+    inline constexpr const char* aero     = "aero";       // macro amount
+    inline constexpr const char* balance  = "balance";    // XY pad X: glass ↔ bubbles
+    inline constexpr const char* air      = "air";        // XY pad Y: dry ↔ airy
+    inline constexpr const char* key      = "key";
+    inline constexpr const char* chord    = "chord";
+    inline constexpr const char* ring     = "ring";
+    inline constexpr const char* strike   = "strike";
+    inline constexpr const char* sparkle  = "sparkle";
+    inline constexpr const char* reg      = "register";
+    inline constexpr const char* fizz     = "fizz";
+    inline constexpr const char* size     = "size";
+    inline constexpr const char* rise     = "rise";
+    inline constexpr const char* grain    = "grain";
+    inline constexpr const char* splash   = "splash";
+    inline constexpr const char* decay    = "decay";
+    inline constexpr const char* mix      = "mix";
+    inline constexpr const char* output   = "output";
+    inline constexpr const char* bypass   = "bypass";
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
-// Lock-free snapshot of all parameters for the audio thread.
-// Holds raw std::atomic<float>* from the APVTS (valid for the processor's life).
+// Lock-free parameter snapshot for the audio thread.
 class Snapshot
 {
 public:
-    void bind (juce::AudioProcessorValueTreeState& state);
-    SaturationParams read() const noexcept;
+    void bind (juce::AudioProcessorValueTreeState&);
+    AeroParams read() const noexcept;
+    bool bypassed() const noexcept { return bypass->load (std::memory_order_relaxed) >= 0.5f; }
 
 private:
-    std::atomic<float>* inputGain = nullptr;  std::atomic<float>* drive = nullptr;
-    std::atomic<float>* mix = nullptr;        std::atomic<float>* tone = nullptr;
-    std::atomic<float>* bias = nullptr;       std::atomic<float>* mode = nullptr;
-    std::atomic<float>* highCut = nullptr;    std::atomic<float>* lowProtect = nullptr;
-    std::atomic<float>* outputGain = nullptr; std::atomic<float>* autoGain = nullptr;
-    std::atomic<float>* limiter = nullptr;    std::atomic<float>* oversampling = nullptr;
-    std::atomic<float>* bypass = nullptr;
+    std::atomic<float>* aero = nullptr;   std::atomic<float>* balance = nullptr; std::atomic<float>* air = nullptr;
+    std::atomic<float>* key = nullptr;    std::atomic<float>* chord = nullptr;   std::atomic<float>* ring = nullptr;
+    std::atomic<float>* strike = nullptr; std::atomic<float>* sparkle = nullptr; std::atomic<float>* reg = nullptr;
+    std::atomic<float>* fizz = nullptr;   std::atomic<float>* size = nullptr;    std::atomic<float>* rise = nullptr;
+    std::atomic<float>* grain = nullptr;  std::atomic<float>* splash = nullptr;  std::atomic<float>* decay = nullptr;
+    std::atomic<float>* mix = nullptr;    std::atomic<float>* output = nullptr;  std::atomic<float>* bypass = nullptr;
 };
 
-} // namespace aero::params
+} // namespace aerosound::params

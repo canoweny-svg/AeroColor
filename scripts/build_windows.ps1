@@ -19,4 +19,4 @@ cmake --build build-win --config $Config --parallel
 ctest --test-dir build-win -C $Config --output-on-failure
 
 Write-Host "`nArtefacts:"
-Get-ChildItem "build-win\AeroGlow_artefacts\$Config" -Directory | ForEach-Object { Get-ChildItem $_.FullName }
+Get-ChildItem "build-win\AeroSound_artefacts\$Config" -Directory | ForEach-Object { Get-ChildItem $_.FullName }

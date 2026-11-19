@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AEROSOUND factory preset. Values in real units (%, s, dB; key/chord/register are list indices). -->
+<AeroSoundPreset name="Aquarium Drums" formatVersion="1" pluginVersion="1.0.0">
+  <PARAM id="aero" value="80"/>
+  <PARAM id="balance" value="55"/>
+  <PARAM id="air" value="35"/>
+  <PARAM id="key" value="0"/>
+  <PARAM id="chord" value="4"/>
+  <PARAM id="ring" value="1.2"/>
+  <PARAM id="strike" value="95"/>
+  <PARAM id="sparkle" value="50"/>
+  <PARAM id="register" value="2"/>
+  <PARAM id="fizz" value="30"/>
+  <PARAM id="size" value="50"/>
+  <PARAM id="rise" value="55"/>
+  <PARAM id="grain" value="15"/>
+  <PARAM id="splash" value="90"/>
+  <PARAM id="decay" value="2.2"/>
+  <PARAM id="mix" value="100"/>
+  <PARAM id="output" value="0"/>
+</AeroSoundPreset>

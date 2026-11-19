@@ -1,31 +1,31 @@
 ; =============================================================================
-;  Inno Setup 6 script — Windows x64 installer for AeroGlow Saturator.
-;  Build:  iscc /DArtefacts="..\..\build-win\AeroGlow_artefacts\Release" /DVersion=1.0.0 AeroGlow.iss
+;  Inno Setup 6 script — Windows x64 installer for AEROSOUND.
+;  Build:  iscc /DArtefacts="..\..\build-win\AeroSound_artefacts\Release" /DVersion=1.0.0 AeroGlow.iss
 ;  Installs:
-;    VST3        → C:\Program Files\Common Files\VST3\AeroGlow Saturator.vst3   (bundle folder)
+;    VST3        → C:\Program Files\Common Files\VST3\AEROSOUND.vst3   (bundle folder)
 ;    AAX         → C:\Program Files\Common Files\Avid\Audio\Plug-Ins\           (only if built + PACE-signed)
-;    Standalone  → C:\Program Files\AeroGlow Audio\AeroGlow Saturator\
+;    Standalone  → C:\Program Files\AeroSound\AEROSOUND\
 ;  Sign the resulting setup.exe with signtool (Authenticode) before distribution.
 ; =============================================================================
 #ifndef Artefacts
-  #define Artefacts "..\..\build-win\AeroGlow_artefacts\Release"
+  #define Artefacts "..\..\build-win\AeroSound_artefacts\Release"
 #endif
 #ifndef Version
   #define Version "1.0.0"
 #endif
-#define Name "AeroGlow Saturator"
+#define Name "AEROSOUND"
 
 [Setup]
-AppId={{6B0E5C1A-7A3F-4E7D-9C1B-AE6100000001}
+AppId={{6B0E5C1A-7A3F-4E7D-9C1B-AE5000000002}
 AppName={#Name}
 AppVersion={#Version}
-AppPublisher=AeroGlow Audio
-DefaultDirName={autopf}\AeroGlow Audio\{#Name}
+AppPublisher=AeroSound
+DefaultDirName={autopf}\AeroSound\{#Name}
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist\windows
-OutputBaseFilename=AeroGlow-{#Version}-Windows-x64
+OutputBaseFilename=AEROSOUND-{#Version}-Windows-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

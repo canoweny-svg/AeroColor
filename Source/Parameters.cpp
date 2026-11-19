@@ -1,146 +1,112 @@
 #include "Parameters.h"
 
-namespace aero::params
+namespace aerosound::params
 {
 namespace
 {
-    using Float  = juce::AudioParameterFloat;
-    using Choice = juce::AudioParameterChoice;
-    using Bool   = juce::AudioParameterBool;
+    using Float = juce::AudioParameterFloat;
+    juce::ParameterID pid (const char* s) { return { s, kVersion }; }
 
-    juce::ParameterID pid (const char* s) { return { s, kParamVersion }; }
-
-    juce::String dbText (float v, int)
+    juce::AudioParameterFloatAttributes pct()
     {
-        if (std::abs (v) < 0.05f) return "0.0 dB";
-        return (v > 0 ? "+" : "") + juce::String (v, 1) + " dB";
+        return juce::AudioParameterFloatAttributes().withLabel ("%")
+            .withStringFromValueFunction ([] (float v, int) { return juce::String (juce::roundToInt (v)) + " %"; })
+            .withValueFromStringFunction ([] (const juce::String& t) { return t.retainCharacters ("0123456789.-").getFloatValue(); });
     }
 
-    juce::String hzText (float v, int)
+    juce::AudioParameterFloatAttributes seconds()
     {
-        return v >= 1000.0f ? juce::String (v / 1000.0f, 1) + " kHz" : juce::String (juce::roundToInt (v)) + " Hz";
-    }
-
-    // Parses "12k", "12 kHz", "900", "+3 dB", "50 %" → number
-    float parseNumber (const juce::String& t)
-    {
-        const auto s = t.trim().toLowerCase();
-        float v = s.retainCharacters ("0123456789.-+").getFloatValue();
-        if (s.containsChar ('k')) v *= 1000.0f;
-        return v;
+        return juce::AudioParameterFloatAttributes().withLabel ("s")
+            .withStringFromValueFunction ([] (float v, int) { return juce::String (v, v < 10.0f ? 1 : 0) + " s"; })
+            .withValueFromStringFunction ([] (const juce::String& t) { return t.retainCharacters ("0123456789.").getFloatValue(); });
     }
 
     juce::NormalisableRange<float> skewed (float lo, float hi, float centre)
     {
-        juce::NormalisableRange<float> r (lo, hi);
+        juce::NormalisableRange<float> r (lo, hi, 0.01f);
         r.setSkewForCentre (centre);
         return r;
+    }
+
+    void addPct (juce::AudioProcessorValueTreeState::ParameterLayout& l, const char* id, const char* name, float def)
+    {
+        l.add (std::make_unique<Float> (pid (id), name, juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), def, pct()));
     }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 {
-    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    juce::AudioProcessorValueTreeState::ParameterLayout l;
 
-    auto dbAttr = juce::AudioParameterFloatAttributes().withLabel ("dB")
-                      .withStringFromValueFunction (dbText)
-                      .withValueFromStringFunction (parseNumber);
+    addPct (l, id::aero,    "AERO",            70.0f);
+    addPct (l, id::balance, "Glass-Bubbles",   50.0f);
+    addPct (l, id::air,     "Air",             50.0f);
 
-    layout.add (std::make_unique<Float> (pid (id::inputGain), "Input Gain",
-                                         juce::NormalisableRange<float> (-24.0f, 24.0f, 0.01f), defaults::inputGain, dbAttr));
+    l.add (std::make_unique<juce::AudioParameterChoice> (pid (id::key), "Key",
+        juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0));
+    juce::StringArray chords;
+    for (int c = 0; c < (int) Chord::NumChords; ++c) chords.add (chordShape ((Chord) c).name);
+    l.add (std::make_unique<juce::AudioParameterChoice> (pid (id::chord), "Chord", chords, 0));
 
-    layout.add (std::make_unique<Float> (pid (id::drive), "Saturation",
-                                         juce::NormalisableRange<float> (0.0f, 36.0f, 0.01f), defaults::drive,
-                                         juce::AudioParameterFloatAttributes().withLabel ("dB")
-                                             .withStringFromValueFunction ([] (float v, int) { return "+" + juce::String (v, 1) + " dB"; })
-                                             .withValueFromStringFunction (parseNumber)));
+    l.add (std::make_unique<Float> (pid (id::ring), "Glass Ring", skewed (0.2f, 8.0f, 1.8f), 1.8f, seconds()));
+    addPct (l, id::strike,  "Glass Strike",  60.0f);
+    addPct (l, id::sparkle, "Glass Sparkle", 40.0f);
+    l.add (std::make_unique<juce::AudioParameterChoice> (pid (id::reg), "Glass Register",
+        juce::StringArray { "Mellow", "Bright", "Icy" }, 1));
 
-    layout.add (std::make_unique<Float> (pid (id::mix), "Mix",
-                                         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), defaults::mix,
-                                         juce::AudioParameterFloatAttributes().withLabel ("%")
-                                             .withStringFromValueFunction ([] (float v, int) { return juce::String (juce::roundToInt (v)) + " %"; })
-                                             .withValueFromStringFunction (parseNumber)));
+    addPct (l, id::fizz,   "Bubble Fizz",   50.0f);
+    addPct (l, id::size,   "Bubble Size",   40.0f);
+    addPct (l, id::rise,   "Bubble Rise",   50.0f);
+    addPct (l, id::grain,  "Bubble Grain",  50.0f);
+    addPct (l, id::splash, "Bubble Splash", 60.0f);
 
-    layout.add (std::make_unique<Float> (pid (id::tone), "Tone / Tilt",
-                                         juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), defaults::tone,
-                                         juce::AudioParameterFloatAttributes()
-                                             .withStringFromValueFunction ([] (float v, int)
-                                             {
-                                                 if (std::abs (v) < 0.5f) return juce::String ("Neutral");
-                                                 return juce::String (v < 0 ? "Dark " : "Bright ") + juce::String (juce::roundToInt (std::abs (v)));
-                                             })
-                                             .withValueFromStringFunction ([] (const juce::String& t)
-                                             {
-                                                 const float v = std::abs (parseNumber (t));
-                                                 return t.containsIgnoreCase ("dark") || t.trim().startsWithChar ('-') ? -v : v;
-                                             })));
-
-    layout.add (std::make_unique<Float> (pid (id::bias), "Bias",
-                                         juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), defaults::bias,
-                                         juce::AudioParameterFloatAttributes().withLabel ("%")
-                                             .withStringFromValueFunction ([] (float v, int) { return (v > 0.5f ? "+" : "") + juce::String (juce::roundToInt (v)) + " %"; })
-                                             .withValueFromStringFunction (parseNumber)));
-
-    layout.add (std::make_unique<Choice> (pid (id::mode), "Mode",
-                                          juce::StringArray { "Luminous Warmth", "Neon Crunch" }, 0));
-
-    layout.add (std::make_unique<Float> (pid (id::highCut), "High Cut (Neon)", skewed (2000.0f, 20000.0f, 7000.0f), defaults::highCut,
-                                         juce::AudioParameterFloatAttributes().withLabel ("Hz")
-                                             .withStringFromValueFunction ([] (float v, int) { return v >= 19990.0f ? juce::String ("Off") : hzText (v, 0); })
-                                             .withValueFromStringFunction ([] (const juce::String& t) { return t.containsIgnoreCase ("off") ? 20000.0f : parseNumber (t); })));
-
-    layout.add (std::make_unique<Float> (pid (id::lowProtect), "Low Protect (Neon)", skewed (30.0f, 250.0f, 90.0f), defaults::lowProtect,
-                                         juce::AudioParameterFloatAttributes().withLabel ("Hz")
-                                             .withStringFromValueFunction (hzText)
-                                             .withValueFromStringFunction (parseNumber)));
-
-    layout.add (std::make_unique<Float> (pid (id::outputGain), "Output Gain",
-                                         juce::NormalisableRange<float> (-24.0f, 24.0f, 0.01f), defaults::outputGain, dbAttr));
-
-    layout.add (std::make_unique<Bool> (pid (id::autoGain), "Auto Gain", true));
-    layout.add (std::make_unique<Bool> (pid (id::limiter), "Safety Limiter", false));
-
-    // Applies to Luminous Warmth; Neon Crunch always runs at 4× (spec: mandatory).
-    // Automatable: switching is a click-free crossfade and does NOT change latency.
-    layout.add (std::make_unique<Choice> (pid (id::oversampling), "Oversampling",
-                                          juce::StringArray { "2x", "4x" }, 0));
-
-    layout.add (std::make_unique<Bool> (pid (id::bypass), "Bypass", false));
-    return layout;
+    l.add (std::make_unique<Float> (pid (id::decay), "Air Decay", skewed (0.5f, 12.0f, 3.0f), 2.8f, seconds()));
+    addPct (l, id::mix, "Mix", 100.0f);
+    l.add (std::make_unique<Float> (pid (id::output), "Output", juce::NormalisableRange<float> (-24.0f, 12.0f, 0.01f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")
+            .withStringFromValueFunction ([] (float v, int) { return (v > 0.05f ? "+" : "") + juce::String (v, 1) + " dB"; })
+            .withValueFromStringFunction ([] (const juce::String& t) { return t.retainCharacters ("0123456789.-").getFloatValue(); })));
+    l.add (std::make_unique<juce::AudioParameterBool> (pid (id::bypass), "Bypass", false));
+    return l;
 }
 
 void Snapshot::bind (juce::AudioProcessorValueTreeState& s)
 {
-    auto get = [&s] (const char* paramId)
-    {
-        auto* p = s.getRawParameterValue (paramId);
-        jassert (p != nullptr);     // ID typo → caught in debug builds
-        return p;
-    };
-    inputGain = get (id::inputGain);  drive = get (id::drive);         mix = get (id::mix);
-    tone = get (id::tone);            bias = get (id::bias);           mode = get (id::mode);
-    highCut = get (id::highCut);      lowProtect = get (id::lowProtect);
-    outputGain = get (id::outputGain); autoGain = get (id::autoGain);  limiter = get (id::limiter);
-    oversampling = get (id::oversampling); bypass = get (id::bypass);
+    auto get = [&s] (const char* paramId) { auto* p = s.getRawParameterValue (paramId); jassert (p != nullptr); return p; };
+    aero = get (id::aero);     balance = get (id::balance); air = get (id::air);
+    key = get (id::key);       chord = get (id::chord);     ring = get (id::ring);
+    strike = get (id::strike); sparkle = get (id::sparkle); reg = get (id::reg);
+    fizz = get (id::fizz);     size = get (id::size);       rise = get (id::rise);
+    grain = get (id::grain);   splash = get (id::splash);   decay = get (id::decay);
+    mix = get (id::mix);       output = get (id::output);   bypass = get (id::bypass);
 }
 
-SaturationParams Snapshot::read() const noexcept
+AeroParams Snapshot::read() const noexcept
 {
-    SaturationParams p;
-    p.inputGainDb  = inputGain->load (std::memory_order_relaxed);
-    p.driveDb      = drive->load (std::memory_order_relaxed);
-    p.mix          = mix->load (std::memory_order_relaxed) * 0.01f;
-    p.tone         = tone->load (std::memory_order_relaxed) * 0.01f;
-    p.bias         = bias->load (std::memory_order_relaxed) * 0.01f;
-    p.mode         = mode->load (std::memory_order_relaxed) >= 0.5f ? Mode::NeonCrunch : Mode::LuminousWarmth;
-    p.highCutHz    = highCut->load (std::memory_order_relaxed);
-    p.lowProtectHz = lowProtect->load (std::memory_order_relaxed);
-    p.outputGainDb = outputGain->load (std::memory_order_relaxed);
-    p.autoGain     = autoGain->load (std::memory_order_relaxed) >= 0.5f;
-    p.limiter      = limiter->load (std::memory_order_relaxed) >= 0.5f;
-    p.oversampling = oversampling->load (std::memory_order_relaxed) >= 0.5f ? Oversampling::x4 : Oversampling::x2;
-    p.bypass       = bypass->load (std::memory_order_relaxed) >= 0.5f;
-    return p;           // SaturationProcessor::setParameters clamps everything again
+    auto v = [] (const std::atomic<float>* a) { return a->load (std::memory_order_relaxed); };
+    const float macro = v (aero) * 0.01f;
+    const float bal   = v (balance) * 0.01f;
+
+    AeroParams p;
+    p.key     = juce::jlimit (0, 11, juce::roundToInt (v (key)));
+    p.chord   = (Chord) juce::jlimit (0, (int) Chord::NumChords - 1, juce::roundToInt (v (chord)));
+    p.glass   = macro * std::min (1.0f, 2.0f * (1.0f - bal));
+    p.bubbles = macro * std::min (1.0f, 2.0f * bal);
+    p.space   = macro * v (air) * 0.01f;
+    p.airSend = 0.15f + 0.25f * v (air) * 0.01f;
+    p.ring    = v (ring);
+    p.strike  = v (strike) * 0.01f;
+    p.sparkle = v (sparkle) * 0.01f;
+    p.tone    = juce::jlimit (0, 2, juce::roundToInt (v (reg))) * 0.4f + 0.1f;   // 0.1 / 0.5 / 0.9
+    p.fizz    = v (fizz) * 0.01f;
+    p.size    = v (size) * 0.01f;
+    p.rise    = v (rise) * 0.01f;
+    p.grain   = v (grain) * 0.01f;
+    p.splash  = v (splash) * 0.01f;
+    p.spaceDecay = v (decay);
+    p.mix     = v (mix) * 0.01f;
+    p.output  = juce::Decibels::decibelsToGain (v (output));
+    return p;
 }
 
-} // namespace aero::params
+} // namespace aerosound::params

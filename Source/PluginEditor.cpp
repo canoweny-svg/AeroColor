@@ -1,174 +1,116 @@
 #include "PluginEditor.h"
 
-using namespace aero;
 using namespace aero::gui;
+namespace pid = aerosound::params::id;
 
 namespace
 {
-    // ---- base-layout geometry (720 × 560) ----
-    const juce::Rectangle<int> kMainPanel   { 20, 72, 500, 360 };
-    const juce::Rectangle<int> kSidePanel   { 536, 72, 164, 360 };
-    const juce::Rectangle<int> kBottomPanel { 20, 446, 680, 102 };
-    const juce::Rectangle<int> kBigKnobArea     { 135, 100, 250, 250 };
+    // ---- base-layout geometry (760 × 560) ----
+    const juce::Rectangle<int> kAeroPanel    { 20, 72, 230, 288 };
+    const juce::Rectangle<int> kPadPanel     { 262, 72, 300, 288 };
+    const juce::Rectangle<int> kRightPanel   { 574, 72, 166, 288 };
+    const juce::Rectangle<int> kGlassPanel   { 20, 372, 330, 176 };
+    const juce::Rectangle<int> kBubblePanel  { 362, 372, 378, 176 };
 
-    constexpr float kRotaryStart = juce::MathConstants<float>::pi * 1.25f;   // −135°
-    constexpr float kRotaryEnd   = juce::MathConstants<float>::pi * 2.75f;   // +135°
+    constexpr float kRotaryStart = juce::MathConstants<float>::pi * 1.25f;
+    constexpr float kRotaryEnd   = juce::MathConstants<float>::pi * 2.75f;
+
+    void caption (juce::Graphics& g, juce::Rectangle<int> panel, const char* text)
+    {
+        g.setColour (colours::ink.withAlpha (0.8f));
+        g.setFont (AeroLookAndFeel::uiFont (13.0f, true));
+        g.drawText (text, panel.getX(), panel.getY() + 7, panel.getWidth(), 18, juce::Justification::centred);
+    }
 }
 
 // =============================================================================
-//  Panel: background art
-// =============================================================================
-AeroGlowEditor::Panel::Panel()
+AeroSoundEditor::Panel::Panel()
 {
     setSize (kBaseW, kBaseH);
-    // 2× resolution so it stays crisp on HiDPI / when the editor is enlarged.
-    metal = AeroLookAndFeel::createBrushedMetal (kBaseW * 2, kBaseH * 2);
+    metal = AeroLookAndFeel::createBrushedMetal (kBaseW * 2, kBaseH * 2, 0xA350);
     setOpaque (true);
 }
 
-void AeroGlowEditor::Panel::paint (juce::Graphics& g)
+void AeroSoundEditor::Panel::paint (juce::Graphics& g)
 {
     const auto b = getLocalBounds().toFloat();
     g.drawImage (metal, b, juce::RectanglePlacement::stretchToFit);
 
-    // Aero "sky": cyan glow from the top-left, a hint of fresh green bottom-right.
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0x5536c6ff), 0.0f, 0.0f,
-                                             juce::Colour (0x0036c6ff), b.getWidth() * 0.55f, b.getHeight() * 0.55f, true));
+    // Aero sky glow + fresh green corner
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0x6036c6ff), 0, 0, juce::Colour (0x0036c6ff), b.getWidth() * 0.6f, b.getHeight() * 0.6f, true));
     g.fillRect (b);
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0x2a7ee08a), b.getRight(), b.getBottom(),
-                                             juce::Colour (0x007ee08a), b.getRight() - 260.0f, b.getBottom() - 260.0f, true));
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0x307ee08a), b.getRight(), b.getBottom(),
+                                             juce::Colour (0x007ee08a), b.getRight() - 300.0f, b.getBottom() - 300.0f, true));
     g.fillRect (b);
-
-    // Decorative bubbles (background motif)
-    struct Bubble { float x, y, r; };
-    for (auto bb : { Bubble { 688, 40, 22 }, Bubble { 660, 22, 9 }, Bubble { 508, 428, 11 }, Bubble { 14, 300, 16 }, Bubble { 704, 300, 7 } })
-    {
-        auto r = juce::Rectangle<float> (bb.r * 2, bb.r * 2).withCentre ({ bb.x, bb.y });
-        g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.0f), r.getCentreX(), r.getCentreY(),
-                                                 juce::Colours::white.withAlpha (0.55f), r.getRight(), r.getCentreY(), true));
-        g.fillEllipse (r);
-        g.setColour (juce::Colours::white.withAlpha (0.6f));
-        g.drawEllipse (r, 0.8f);
-        g.fillEllipse (r.withSizeKeepingCentre (bb.r * 0.5f, bb.r * 0.3f).translated (-bb.r * 0.35f, -bb.r * 0.45f));
-    }
 
     // Wordmark
     g.setFont (AeroLookAndFeel::uiFont (30.0f, true));
     g.setColour (juce::Colours::white.withAlpha (0.8f));
-    g.drawText ("AeroGlow", 24, 13, 220, 34, juce::Justification::centredLeft);
-    g.setGradientFill (juce::ColourGradient (colours::deepBlue, 0, 12, juce::Colour (0xff1f8fd0), 0, 46, false));
-    g.drawText ("AeroGlow", 24, 12, 220, 34, juce::Justification::centredLeft);
-    g.setFont (AeroLookAndFeel::uiFont (10.5f, true));
+    g.drawText ("AEROSOUND", 24, 13, 240, 34, juce::Justification::centredLeft);
+    g.setGradientFill (juce::ColourGradient (colours::deepBlue, 0, 12, juce::Colour (0xff1fa8e0), 0, 46, false));
+    g.drawText ("AEROSOUND", 24, 12, 240, 34, juce::Justification::centredLeft);
+    g.setFont (AeroLookAndFeel::uiFont (10.0f, true));
     g.setColour (colours::inkSoft);
-    g.drawText ("S A T U R A T O R", 26, 44, 220, 14, juce::Justification::centredLeft);
+    g.drawText (juce::String::fromUTF8 ("G L A S S   \xc2\xb7   B U B B L E S   \xc2\xb7   A I R"), 26, 44, 260, 14, juce::Justification::centredLeft);
 
-    // Glass panels
-    AeroLookAndFeel::drawGlassPanel (g, kMainPanel.toFloat(), 16.0f);
-    AeroLookAndFeel::drawGlassPanel (g, kSidePanel.toFloat(), 16.0f);
-    AeroLookAndFeel::drawGlassPanel (g, kBottomPanel.toFloat(), 16.0f);
+    for (auto p : { kAeroPanel, kPadPanel, kRightPanel, kGlassPanel, kBubblePanel })
+        AeroLookAndFeel::drawGlassPanel (g, p.toFloat(), 16.0f);
 
-    // Captions
-    g.setColour (colours::ink.withAlpha (0.8f));
-    g.setFont (AeroLookAndFeel::uiFont (13.0f, true));
-    g.drawText ("SATURATION", kMainPanel.getX(), kMainPanel.getY() + 8, kMainPanel.getWidth(), 18, juce::Justification::centred);
+    caption (g, kAeroPanel, "AERO");
+    caption (g, kGlassPanel, "GLASS");
+    caption (g, kBubblePanel, "BUBBLES");
 
-    // Big-knob range labels (−135° and +135° ends of the arc)
-    g.setFont (AeroLookAndFeel::uiFont (12.0f, true));
+    g.setFont (AeroLookAndFeel::uiFont (11.0f));
     g.setColour (colours::inkSoft);
-    const auto kc = kBigKnobArea.toFloat().getCentre();
-    const float lr = kBigKnobArea.getWidth() * 0.5f;
-    g.drawText ("0 dB",   juce::Rectangle<float> (70, 18).withCentre (juce::Point<float> (kc.x - lr * 0.80f, kc.y + lr * 0.86f)), juce::Justification::centred);
-    g.drawText ("+36 dB", juce::Rectangle<float> (70, 18).withCentre (juce::Point<float> (kc.x + lr * 0.80f, kc.y + lr * 0.86f)), juce::Justification::centred);
+    g.drawText ("Bubbles follow your audio, always in your key",
+                kBubblePanel.withTrimmedTop (kBubblePanel.getHeight() - 36), juce::Justification::centred);
 }
 
 // =============================================================================
-//  Editor
-// =============================================================================
-AeroGlowEditor::AeroGlowEditor (AeroGlowAudioProcessor& p)
-    : AudioProcessorEditor (p), proc (p)
+AeroSoundEditor::AeroSoundEditor (AeroSoundAudioProcessor& p) : AudioProcessorEditor (p), proc (p)
 {
     setLookAndFeel (&lnf);
     tooltips.setLookAndFeel (&lnf);
     addAndMakeVisible (panel);
+    auto& st = proc.getState();
 
-    auto& state = proc.getState();
+    addKnob (aero, pid::aero, {}, "AERO: how much of the glass-and-bubbles world.\nOne knob to rule them all.", true);
+    addKnob (ring,    pid::ring,    "RING",    "How long the glass rings (seconds).");
+    addKnob (strike,  pid::strike,  "STRIKE",  "Low: the glass sings along with everything.\nHigh: it rings only on hits, like a mallet.");
+    addKnob (sparkle, pid::sparkle, "SPARKLE", "Glassy top-end shine on the ringing.");
+    addKnob (fizz,    pid::fizz,    "FIZZ",    "How many bubbles (they follow your audio level).");
+    addKnob (size,    pid::size,    "SIZE",    "Tiny high bubbles ← → big low bloops.");
+    addKnob (rise,    pid::rise,    "RISE",    "How far each bubble glides up in pitch.");
+    addKnob (grain,   pid::grain,   "GRAIN",   "Synth bubbles ← → bubbles made from your own sound.");
+    addKnob (splash,  pid::splash,  "SPLASH",  "Bursts of bubbles on every hit.");
+    addKnob (mix,     pid::mix,     "MIX",     "How much of the effect is added on top of your sound.");
+    addKnob (decay,   pid::decay,   "DECAY",   "Length of the bright AIR reverb.");
+    addKnob (output,  pid::output,  "OUTPUT",  "Output level.");
+    output.slider.getProperties().set (kBipolarProp, true);
 
-    // --- big Saturation knob ---
-    saturation.getProperties().set (kBigKnobProp, true);
-    setupSlider (saturation, params::id::drive,
-                 "Saturation: drive into the waveshaper, 0 to +36 dB.\n"
-                 "Auto Gain keeps the loudness constant while you turn it.");
-    saturationAttachment = std::make_unique<SliderAttachment> (state, params::id::drive, saturation);
-    panel.addAndMakeVisible (saturation);
+    addCombo (key,   pid::key,   "Key of your song: all glass and bubbles are tuned to it.");
+    addCombo (chord, pid::chord, "Which notes ring: Maj9 / Add9 / Pentatonic sound the most 'Aero'.");
+    addCombo (reg,   pid::reg,   "Glass register: Mellow, Bright or Icy octave.");
 
-    // --- small knobs ---
-    struct Def { KnobIndex idx; const char* id; const char* caption; const char* tip; };
-    const Def defs[] = {
-        { kInput,      params::id::inputGain,  "INPUT",       "Input gain before everything (−24…+24 dB)." },
-        { kMix,        params::id::mix,        "MIX",         "Dry/wet. Phase-coherent: dry is latency- and phase-matched." },
-        { kTone,       params::id::tone,       "TONE",        "Tilt EQ around 900 Hz on the wet signal: dark ← → bright (±6 dB)." },
-        { kBias,       params::id::bias,       "BIAS",        "Moves the operating point of the curve: more/less even (2nd) harmonics." },
-        { kHighCut,    params::id::highCut,    "HIGH CUT",    "Neon Crunch only: 12 dB/oct low-pass on the wet signal to tame fizz. Max = Off." },
-        { kLowProtect, params::id::lowProtect, "LOW PROTECT", "Neon Crunch only: lows below this frequency bypass the clipper (LR4 crossover)." },
-        { kOutput,     params::id::outputGain, "OUTPUT",      "Output gain after the mix (−24…+24 dB)." },
-    };
-    for (const auto& d : defs)
-    {
-        auto& k = knobs[(size_t) d.idx];
-        setupSlider (k.slider, d.id, d.tip);
-        k.slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 90, 18);
-        const bool bipolar = d.idx == kInput || d.idx == kTone || d.idx == kBias || d.idx == kOutput;
-        k.slider.getProperties().set (kBipolarProp, bipolar);
-        k.attachment = std::make_unique<SliderAttachment> (state, d.id, k.slider);
-        k.caption.setText (d.caption, juce::dontSendNotification);
-        k.caption.setFont (AeroLookAndFeel::uiFont (11.5f, true));
-        k.caption.setJustificationType (juce::Justification::centred);
-        k.caption.setColour (juce::Label::textColourId, colours::inkSoft);
-        k.caption.setInterceptsMouseClicks (false, false);
-        panel.addAndMakeVisible (k.slider);
-        panel.addAndMakeVisible (k.caption);
-    }
-
-    // --- mode switch (custom component, ParameterAttachment inside) ---
-    modeSwitch = std::make_unique<ModeSwitch> (*state.getParameter (params::id::mode));
-    panel.addAndMakeVisible (*modeSwitch);
-
-    // --- toggles ---
-    bypassAttachment   = std::make_unique<ButtonAttachment> (state, params::id::bypass, bypassButton);
-    autoGainAttachment = std::make_unique<ButtonAttachment> (state, params::id::autoGain, autoGainButton);
-    limiterAttachment  = std::make_unique<ButtonAttachment> (state, params::id::limiter, limiterButton);
-    bypassButton.setTooltip ("Click-free, latency-compensated bypass.");
-    autoGainButton.setTooltip ("Automatic make-up gain: keeps the wet signal at the dry loudness as Saturation changes.");
-    limiterButton.setTooltip ("Safety limiter at −0.3 dBFS on the output (no look-ahead, no extra latency).");
-    for (auto* b : { &bypassButton, &autoGainButton, &limiterButton }) panel.addAndMakeVisible (*b);
-
-    // --- oversampling ---
-    oversamplingBox.addItem ("2x Oversampling", 1);
-    oversamplingBox.addItem ("4x Oversampling", 2);
-    oversamplingBox.setTooltip ("Oversampling for Luminous Warmth (2x default, 4x = cleaner top end, more CPU).\n"
-                                "Neon Crunch always runs at 4x. Switching never changes the plugin latency.");
-    oversamplingAttachment = std::make_unique<ComboAttachment> (state, params::id::oversampling, oversamplingBox);
-    panel.addAndMakeVisible (oversamplingBox);
-
-    panel.addAndMakeVisible (inMeter);
+    pad = std::make_unique<aerosound::gui::XYPad> (*st.getParameter (pid::balance), *st.getParameter (pid::air));
+    panel.addAndMakeVisible (*pad);
     panel.addAndMakeVisible (outMeter);
 
-    // --- preset bar ---
+    bypassAttachment = std::make_unique<ButtonAttachment> (st, pid::bypass, bypassButton);
+    bypassButton.setTooltip ("Click-free bypass.");
+    panel.addAndMakeVisible (bypassButton);
+
     prevButton.onClick   = [this] { proc.getPresetManager().loadPrevious(); refreshPresetName(); };
     nextButton.onClick   = [this] { proc.getPresetManager().loadNext();     refreshPresetName(); };
     presetButton.onClick = [this] { showPresetMenu(); };
     saveButton.onClick   = [this] { showSaveDialog(); };
-    prevButton.setTooltip ("Previous preset");
-    nextButton.setTooltip ("Next preset");
     presetButton.setTooltip ("Presets: load, save, open folder");
     for (auto* b : { &prevButton, &nextButton, &presetButton, &saveButton }) panel.addAndMakeVisible (*b);
 
     proc.getPresetManager().installFactoryPresets();
     refreshPresetName();
-
     layout();
 
-    // Resizable 50 %…200 % with fixed aspect ratio.
     setResizable (true, true);
     setResizeLimits (kBaseW / 2, kBaseH / 2, kBaseW * 2, kBaseH * 2);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio ((double) kBaseW / (double) kBaseH);
@@ -178,103 +120,131 @@ AeroGlowEditor::AeroGlowEditor (AeroGlowAudioProcessor& p)
     startTimerHz (30);
 }
 
-AeroGlowEditor::~AeroGlowEditor()
+AeroSoundEditor::~AeroSoundEditor()
 {
     stopTimer();
     tooltips.setLookAndFeel (nullptr);
     setLookAndFeel (nullptr);
 }
 
-void AeroGlowEditor::setupSlider (juce::Slider& s, const char* paramId, const juce::String& tooltip)
+void AeroSoundEditor::addKnob (Knob& k, const char* paramId, const juce::String& cap, const juce::String& tip, bool big)
 {
+    auto& s = k.slider;
     s.setRotaryParameters (kRotaryStart, kRotaryEnd, true);
-    s.setTooltip (tooltip);
-    if (auto* p = proc.getState().getParameter (paramId))
+    s.setTooltip (tip);
+    if (big)
     {
-        s.setTitle (p->getName (64));
-        s.setDoubleClickReturnValue (true, p->convertFrom0to1 (p->getDefaultValue()));   // double-click = default
+        s.getProperties().set (kBigKnobProp, true);
+        s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+        s.setMouseDragSensitivity (320);
     }
-    s.setMouseDragSensitivity (s.getProperties().getWithDefault (kBigKnobProp, false) ? 320 : 200);
-}
-
-void AeroGlowEditor::layout()
-{
-    // Header
-    prevButton.setBounds   (262, 16, 28, 30);
-    presetButton.setBounds (294, 16, 190, 30);
-    nextButton.setBounds   (488, 16, 28, 30);
-    saveButton.setBounds   (522, 16, 58, 30);
-    bypassButton.setBounds (600, 17, 100, 28);
-
-    // Main panel
-    saturation.setBounds (kBigKnobArea);
-    modeSwitch->setBounds (kMainPanel.getCentreX() - 180, 382, 360, 38);
-
-    // Side panel
-    inMeter.setBounds  (kSidePanel.getX() + 14, kSidePanel.getY() + 10, 64, 232);
-    outMeter.setBounds (kSidePanel.getX() + 86, kSidePanel.getY() + 10, 64, 232);
-    autoGainButton.setBounds  (kSidePanel.getX() + 12, 322, 140, 28);
-    limiterButton.setBounds   (kSidePanel.getX() + 12, 356, 140, 28);
-    oversamplingBox.setBounds (kSidePanel.getX() + 12, 392, 140, 28);
-
-    // Bottom row
-    const int colW = kBottomPanel.getWidth() / kNumKnobs;
-    for (int i = 0; i < kNumKnobs; ++i)
+    else
     {
-        const int x = kBottomPanel.getX() + i * colW;
-        knobs[(size_t) i].caption.setBounds (x, kBottomPanel.getY() + 6, colW, 14);
-        knobs[(size_t) i].slider.setBounds  (x + 4, kBottomPanel.getY() + 20, colW - 8, 78);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 16);
+        s.setMouseDragSensitivity (200);
+        // Explicit theme colours for the value box (the label is created before
+        // the editor's LookAndFeel reaches it, so don't rely on inheritance).
+        s.setColour (juce::Slider::textBoxTextColourId, colours::ink);
+        s.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+        s.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    }
+    if (auto* prm = proc.getState().getParameter (paramId))
+    {
+        s.setTitle (prm->getName (64));
+        s.setDoubleClickReturnValue (true, prm->convertFrom0to1 (prm->getDefaultValue()));
+    }
+    k.attachment = std::make_unique<SliderAttachment> (proc.getState(), paramId, s);
+    panel.addAndMakeVisible (s);
+
+    if (cap.isNotEmpty())
+    {
+        k.caption.setText (cap, juce::dontSendNotification);
+        k.caption.setFont (AeroLookAndFeel::uiFont (11.0f, true));
+        k.caption.setJustificationType (juce::Justification::centred);
+        k.caption.setColour (juce::Label::textColourId, colours::inkSoft);
+        k.caption.setInterceptsMouseClicks (false, false);
+        panel.addAndMakeVisible (k.caption);
     }
 }
 
-void AeroGlowEditor::resized()
+void AeroSoundEditor::addCombo (Combo& c, const char* paramId, const juce::String& tip)
 {
-    const float scale = (float) getWidth() / (float) kBaseW;
-    panel.setTransform (juce::AffineTransform::scale (scale));
+    if (auto* prm = dynamic_cast<juce::AudioParameterChoice*> (proc.getState().getParameter (paramId)))
+        c.box.addItemList (prm->choices, 1);
+    c.box.setTooltip (tip);
+    c.attachment = std::make_unique<ComboAttachment> (proc.getState(), paramId, c.box);
+    panel.addAndMakeVisible (c.box);
 }
 
-void AeroGlowEditor::refreshPresetName()
+void AeroSoundEditor::layout()
+{
+    prevButton.setBounds   (300, 16, 28, 30);
+    presetButton.setBounds (332, 16, 196, 30);
+    nextButton.setBounds   (532, 16, 28, 30);
+    saveButton.setBounds   (566, 16, 58, 30);
+    bypassButton.setBounds (640, 17, 100, 28);
+
+    // AERO panel
+    aero.slider.setBounds (kAeroPanel.getX() + 20, kAeroPanel.getY() + 28, 190, 190);
+    key.box.setBounds   (kAeroPanel.getX() + 14, kAeroPanel.getBottom() - 46, 86, 28);
+    chord.box.setBounds (kAeroPanel.getX() + 106, kAeroPanel.getBottom() - 46, 110, 28);
+
+    // XY pad
+    pad->setBounds (kPadPanel.reduced (10));
+
+    // Right column: meter + Mix / Decay / Output
+    outMeter.setBounds (kRightPanel.getX() + 8, kRightPanel.getY() + 10, 60, kRightPanel.getHeight() - 20);
+    auto placeSmall = [] (Knob& k, int x, int y, int w)
+    {
+        k.caption.setBounds (x, y, w, 14);
+        k.slider.setBounds  (x, y + 14, w, 76);
+    };
+    const int rx = kRightPanel.getX() + 76;
+    placeSmall (mix,    rx, kRightPanel.getY() + 6,   84);
+    placeSmall (decay,  rx, kRightPanel.getY() + 100, 84);
+    placeSmall (output, rx, kRightPanel.getY() + 194, 84);
+
+    // Glass panel
+    const int gy = kGlassPanel.getY() + 26;
+    placeSmall (ring,    kGlassPanel.getX() + 10,  gy, 100);
+    placeSmall (strike,  kGlassPanel.getX() + 115, gy, 100);
+    placeSmall (sparkle, kGlassPanel.getX() + 220, gy, 100);
+    reg.box.setBounds (kGlassPanel.getX() + 70, kGlassPanel.getBottom() - 42, 190, 28);
+
+    // Bubbles panel
+    const int bw = (kBubblePanel.getWidth() - 20) / 5;
+    int bx = kBubblePanel.getX() + 10;
+    for (auto* k : { &fizz, &size, &rise, &grain, &splash }) { placeSmall (*k, bx, gy, bw); bx += bw; }
+}
+
+void AeroSoundEditor::resized()
+{
+    panel.setTransform (juce::AffineTransform::scale ((float) getWidth() / (float) kBaseW));
+}
+
+void AeroSoundEditor::refreshPresetName()
 {
     presetButton.setButtonText (proc.getPresetManager().getCurrentPresetName());
 }
 
-void AeroGlowEditor::timerCallback()
+void AeroSoundEditor::timerCallback()
 {
     const double now = juce::Time::getMillisecondCounterHiRes();
     const float dt = (float) juce::jlimit (0.0, 0.2, (now - lastTick) * 0.001);
     lastTick = now;
 
-    inMeter.pushLevels  (proc.takeInputPeak (0),  proc.takeInputPeak (1),  dt);
-    outMeter.pushLevels (proc.takeOutputPeak (0), proc.takeOutputPeak (1), dt);
-
-    // Mode-dependent styling: accent colour, and which controls are "live".
-    const int mode = modeSwitch->getSelectedIndex();
-    if (mode != lastMode)
-    {
-        lastMode = mode;
-        const bool neon = (mode == 1);
-        const auto accent = neon ? colours::neon : colours::aqua;
-        saturation.setColour (juce::Slider::rotarySliderFillColourId, accent);
-        for (auto& k : knobs) k.slider.setColour (juce::Slider::rotarySliderFillColourId, accent);
-        for (auto idx : { kHighCut, kLowProtect })
-        {
-            knobs[(size_t) idx].slider.getProperties().set (kDimmedProp, ! neon);
-            knobs[(size_t) idx].caption.setAlpha (neon ? 1.0f : 0.45f);
-        }
-        oversamplingBox.setAlpha (neon ? 0.5f : 1.0f);
-        repaint();
-    }
+    const float l = proc.takeOutputPeak (0), r = proc.takeOutputPeak (1);
+    outMeter.pushLevels (l, r, dt);
+    pad->pushLevel (juce::jlimit (0.0f, 1.0f, proc.takeInputPeak() * 2.5f), dt);
 
     if (presetButton.getButtonText() != proc.getPresetManager().getCurrentPresetName())
-        refreshPresetName();   // e.g. host restored a session
+        refreshPresetName();
 }
 
-// ------------------------------------------------------------------ presets --
-void AeroGlowEditor::showPresetMenu()
+void AeroSoundEditor::showPresetMenu()
 {
     auto& pm = proc.getPresetManager();
     const auto files = pm.getAllPresets();
-
     juce::PopupMenu menu;
     for (int i = 0; i < files.size(); ++i)
         menu.addItem (100 + i, files[i].getFileNameWithoutExtension(), true,
@@ -287,18 +257,18 @@ void AeroGlowEditor::showPresetMenu()
     menu.addItem (4, "Reset to Defaults");
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (presetButton),
-                        [safe = juce::Component::SafePointer<AeroGlowEditor> (this), files] (int r)
+                        [safe = juce::Component::SafePointer<AeroSoundEditor> (this), files] (int r)
     {
         if (safe == nullptr || r == 0) return;
         auto& pmgr = safe->proc.getPresetManager();
-        if (r >= 100)       pmgr.loadPreset (files[r - 100]);
-        else if (r == 1)    { safe->showSaveDialog(); return; }
-        else if (r == 3)    pmgr.getPresetFolder().startAsProcess();
-        else if (r == 4)    pmgr.resetToDefaults();
+        if (r >= 100)    pmgr.loadPreset (files[r - 100]);
+        else if (r == 1) { safe->showSaveDialog(); return; }
+        else if (r == 3) pmgr.getPresetFolder().startAsProcess();
+        else if (r == 4) pmgr.resetToDefaults();
         else if (r == 2)
         {
-            safe->fileChooser = std::make_unique<juce::FileChooser> ("Load AeroGlow preset", pmgr.getPresetFolder(),
-                                                                     "*" + PresetManager::kExtension);
+            safe->fileChooser = std::make_unique<juce::FileChooser> ("Load AEROSOUND preset", pmgr.getPresetFolder(),
+                                                                     "*" + aerosound::PresetManager::kExtension);
             safe->fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
                                             [safe] (const juce::FileChooser& fc)
             {
@@ -314,20 +284,18 @@ void AeroGlowEditor::showPresetMenu()
     });
 }
 
-void AeroGlowEditor::showSaveDialog()
+void AeroSoundEditor::showSaveDialog()
 {
     auto* w = new juce::AlertWindow ("Save Preset", "Preset name:", juce::MessageBoxIconType::NoIcon, this);
     w->addTextEditor ("name", proc.getPresetManager().getCurrentPresetName());
     w->addButton ("Save",   1, juce::KeyPress (juce::KeyPress::returnKey));
     w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
     w->enterModalState (true, juce::ModalCallbackFunction::create (
-        [safe = juce::Component::SafePointer<AeroGlowEditor> (this), w] (int result)
+        [safe = juce::Component::SafePointer<AeroSoundEditor> (this), w] (int result)
         {
             if (safe == nullptr || result != 1) return;
-            const auto name = w->getTextEditorContents ("name");
-            if (! safe->proc.getPresetManager().savePreset (name))
-                juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Save Preset",
-                                                        "Could not save \"" + name + "\".");
+            if (! safe->proc.getPresetManager().savePreset (w->getTextEditorContents ("name")))
+                juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Save Preset", "Could not save the preset.");
             safe->refreshPresetName();
         }), true);
 }

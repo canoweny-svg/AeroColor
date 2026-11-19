@@ -1,78 +1,72 @@
 #pragma once
 // =============================================================================
-//  PluginProcessor — thin JUCE shell around aero::SaturationProcessor.
-//  Owns the parameter tree (APVTS), the preset manager and the meters.
-//  No global state: everything lives in this instance.
+//  PluginProcessor — JUCE shell around aerosound::AeroSoundProcessor.
+//  Zero latency. Mono→mono, mono→stereo (bubbles/glass spread in stereo) and
+//  stereo→stereo. Click-free bypass crossfade. No global state.
 // =============================================================================
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "Parameters.h"
 #include "PresetManager.h"
-#include "dsp/SaturationProcessor.h"
+#include "aerosound/AeroSoundProcessor.h"
 
 #include <array>
 
-class AeroGlowAudioProcessor final : public juce::AudioProcessor
+class AeroSoundAudioProcessor final : public juce::AudioProcessor
 {
 public:
-    AeroGlowAudioProcessor();
-    ~AeroGlowAudioProcessor() override = default;
+    AeroSoundAudioProcessor();
 
-    // --- audio ---------------------------------------------------------------
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
+    bool isBusesLayoutSupported (const BusesLayout&) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     void processBlockBypassed (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    using AudioProcessor::processBlock;          // double-precision overloads fall back to
-    using AudioProcessor::processBlockBypassed;  // JUCE's defaults (we only advertise float)
-
+    using AudioProcessor::processBlock;
+    using AudioProcessor::processBlockBypassed;
     juce::AudioProcessorParameter* getBypassParameter() const override { return bypassParam; }
 
-    // --- editor --------------------------------------------------------------
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    // --- info ----------------------------------------------------------------
     const juce::String getName() const override { return JucePlugin_Name; }
     bool acceptsMidi() const override  { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override { return 12.0; }    // glass ring + air decay
 
-    // A single "program": presets are handled by PresetManager (some hosts
-    // misbehave when a plugin reports 0 programs).
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
     void setCurrentProgram (int) override {}
     const juce::String getProgramName (int) override { return presets.getCurrentPresetName(); }
     void changeProgramName (int, const juce::String&) override {}
 
-    // --- state ---------------------------------------------------------------
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
+    void getStateInformation (juce::MemoryBlock&) override;
+    void setStateInformation (const void*, int) override;
 
-    // --- for the editor ------------------------------------------------------
     juce::AudioProcessorValueTreeState& getState() noexcept { return apvts; }
-    aero::PresetManager& getPresetManager() noexcept { return presets; }
+    aerosound::PresetManager& getPresetManager() noexcept { return presets; }
 
-    // Peak since the last call (lock-free, consumed by the editor's meter timer).
-    float takeInputPeak (int ch) noexcept  { return inPeak[(size_t) ch].exchange (0.0f); }
+    // Lock-free level feeds for the editor (consumed on its timer).
     float takeOutputPeak (int ch) noexcept { return outPeak[(size_t) ch].exchange (0.0f); }
+    float takeInputPeak() noexcept         { return inPeak.exchange (0.0f); }
 
-    static inline const juce::Identifier kStateType { "AeroGlowState" };
+    static inline const juce::Identifier kStateType { "AeroSoundState" };
 
 private:
-    void runCore (juce::AudioBuffer<float>& buffer, bool forceBypass) noexcept;
-    static void storePeak (std::atomic<float>& slot, float v) noexcept;
+    void run (juce::AudioBuffer<float>&, bool forceBypass) noexcept;
+    static void storePeak (std::atomic<float>&, float) noexcept;
 
     juce::AudioProcessorValueTreeState apvts;
-    aero::PresetManager presets;
-    aero::params::Snapshot snapshot;
-    aero::SaturationProcessor core;
+    aerosound::PresetManager presets;
+    aerosound::params::Snapshot snapshot;
+    aerosound::AeroSoundProcessor core;
     juce::AudioParameterBool* bypassParam = nullptr;
 
-    std::array<std::atomic<float>, 2> inPeak {}, outPeak {};
+    juce::AudioBuffer<float> dry;
+    aero::LinearSmoother bypassMix;
+    std::array<std::atomic<float>, 2> outPeak {};
+    std::atomic<float> inPeak { 0.0f };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AeroGlowAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AeroSoundAudioProcessor)
 };

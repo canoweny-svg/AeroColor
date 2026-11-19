@@ -42,8 +42,8 @@ jobs:
       - name: Host smoke test (VST3)
         shell: bash
         run: |
-          HOST=$(find build -type f \( -name AeroGlowHostTest -o -name AeroGlowHostTest.exe \) -path "*Release*" | head -1)
-          VST3=$(find build -type d -name "AeroGlow Saturator.vst3" -path "*Release*" | head -1)
+          HOST=$(find build -type f \( -name AeroSoundHostTest -o -name AeroSoundHostTest.exe \) -path "*Release*" | head -1)
+          VST3=$(find build -type d -name "AEROSOUND.vst3" -path "*Release*" | head -1)
           echo "host=$HOST vst3=$VST3"
           if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a "$HOST" "$VST3"; else "$HOST" "$VST3"; fi
 
@@ -51,15 +51,15 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          AU=$(find build -type d -name "AeroGlow Saturator.component" -path "*Release*" | head -1)
+          AU=$(find build -type d -name "AEROSOUND.component" -path "*Release*" | head -1)
           mkdir -p ~/Library/Audio/Plug-Ins/Components && cp -R "$AU" ~/Library/Audio/Plug-Ins/Components/
           killall -9 AudioComponentRegistrar || true
-          auval -v aufx AgSt Aero
-          HOST=$(find build -type f -name AeroGlowHostTest -path "*Release*" | head -1)
-          "$HOST" ~/Library/Audio/Plug-Ins/Components/"AeroGlow Saturator.component"
+          auval -v aufx AeSd AeSn
+          HOST=$(find build -type f -name AeroSoundHostTest -path "*Release*" | head -1)
+          "$HOST" ~/Library/Audio/Plug-Ins/Components/"AEROSOUND.component"
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          name: AeroGlow-${{ runner.os }}
-          path: build/AeroGlow_artefacts/
+          name: AEROSOUND-${{ runner.os }}
+          path: build/AeroSound_artefacts/

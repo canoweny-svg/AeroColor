@@ -211,7 +211,7 @@ void AeroLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, 
         g.drawText (txt, tr, juce::Justification::centred);
         g.setFont (uiFont (orbR * 0.13f, true));
         g.setColour (juce::Colours::white.withAlpha (0.85f));
-        g.drawText ("DRIVE", tr.translated (0.0f, orbR * 0.33f), juce::Justification::centred);
+        g.drawText (s.getTitle().toUpperCase(), tr.translated (0.0f, orbR * 0.33f), juce::Justification::centred);
     }
 }
 

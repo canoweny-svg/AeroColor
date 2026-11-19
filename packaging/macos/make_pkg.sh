@@ -4,7 +4,7 @@
 #
 #  Usage:
 #    packaging/macos/make_pkg.sh <artefacts-dir> <version>
-#      e.g. packaging/macos/make_pkg.sh build-mac/AeroGlow_artefacts/Release 1.0.0
+#      e.g. packaging/macos/make_pkg.sh build-mac/AeroSound_artefacts/Release 1.0.0
 #
 #  Optional environment:
 #    APP_SIGN_ID   "Developer ID Application: Your Name (TEAMID)"   — signs bundles
@@ -16,7 +16,7 @@
 # =============================================================================
 set -euo pipefail
 ART="${1:?artefacts dir}"; VER="${2:?version}"
-NAME="AeroGlow Saturator"; ID="com.aeroglowaudio.aeroglow"
+NAME="AEROSOUND"; ID="com.aerosound.aerosound"
 OUT="dist/macos"; WORK="$(mktemp -d)"
 mkdir -p "$OUT"
 
@@ -50,7 +50,7 @@ DIST="$WORK/distribution.xml"
   echo '</installer-gui-script>'
 } > "$DIST"
 
-PKG="$OUT/AeroGlow-$VER-macOS.pkg"
+PKG="$OUT/AEROSOUND-$VER-macOS.pkg"
 SIGNARGS=(); [[ -n "${PKG_SIGN_ID:-}" ]] && SIGNARGS=(--sign "$PKG_SIGN_ID")
 productbuild --distribution "$DIST" --package-path "$WORK" "${SIGNARGS[@]}" "$PKG"
 

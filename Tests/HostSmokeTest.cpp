@@ -1,5 +1,5 @@
 // =============================================================================
-//  AeroGlowHostTest — loads the BUILT plugin binary through JUCE's real VST3
+//  AeroSoundHostTest — loads the BUILT plugin binary through JUCE's real VST3
 //  (or AU) hosting layer, exactly like a DAW would, and checks:
 //    1. instantiation, name, parameter list, bypass parameter
 //    2. reported latency at 44.1 / 48 / 96 / 192 kHz
@@ -11,7 +11,7 @@
 //       (needs a display; on headless Linux run under Xvfb). PNG screenshots
 //       are made by AeroGlowSnapshot, which renders the editor in-process.
 //
-//  Usage: AeroGlowHostTest <path/to/plugin.vst3|.component>
+//  Usage: AeroSoundHostTest <path/to/plugin.vst3|.component>
 //  Exit code = number of failed checks.
 // =============================================================================
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -77,13 +77,13 @@ float db (float g) { return juce::Decibels::gainToDecibels (g, -120.0f); }
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI gui;
-    if (argc < 2) { std::printf ("usage: AeroGlowHostTest <plugin>\n"); return 1; }
+    if (argc < 2) { std::printf ("usage: AeroSoundHostTest <plugin>\n"); return 1; }
     const juce::File pluginFile (juce::File::getCurrentWorkingDirectory().getChildFile (argv[1]));
 
     juce::AudioPluginFormatManager fm;
     juce::addDefaultFormatsToManager (fm);
 
-    std::printf ("AeroGlow host smoke test\n  plugin: %s\n\n== Load ==\n", pluginFile.getFullPathName().toRawUTF8());
+    std::printf ("AEROSOUND host smoke test\n  plugin: %s\n\n== Load ==\n", pluginFile.getFullPathName().toRawUTF8());
     juce::OwnedArray<juce::PluginDescription> types;
     for (auto* f : fm.getFormats())
         if (f->fileMightContainThisPluginType (pluginFile.getFullPathName()))
@@ -102,7 +102,7 @@ int main (int argc, char** argv)
     std::printf ("  parameters (%d):", plugin->getParameters().size());
     for (auto* p : plugin->getParameters()) std::printf (" [%s]", p->getName (32).toRawUTF8());
     std::printf ("\n");
-    check (plugin->getParameters().size() >= 13, "all 13 parameters exposed for automation");
+    check (plugin->getParameters().size() >= 18, "all " + juce::String (plugin->getParameters().size()) + " parameters exposed for automation");
     check (plugin->getBypassParameter() != nullptr, "host-visible bypass parameter");
     check (! plugin->acceptsMidi() && ! plugin->producesMidi(), "audio effect (no MIDI)");
 
@@ -113,7 +113,7 @@ int main (int argc, char** argv)
         plugin->setPlayConfigDetails (2, 2, fs, 512);
         plugin->prepareToPlay (fs, 512);
         const int lat = plugin->getLatencySamples();
-        check (lat >= 0 && lat <= 64, juce::String ("fs ") + juce::String (fs, 0) + " Hz -> reported latency " + juce::String (lat)
+        check (lat == 0, juce::String ("fs ") + juce::String (fs, 0) + " Hz -> reported latency " + juce::String (lat)
                                           + " samples (" + juce::String (1000.0 * lat / fs, 3) + " ms)");
         plugin->releaseResources();
     }
@@ -173,23 +173,24 @@ int main (int argc, char** argv)
         check (true, "corrupt state blob ignored without crashing");
     }
 
-    // ---- per-mode levels (meter view) ----
-    std::printf ("\n== Meter view: IN vs OUT, 220 Hz sine @ -12 dBFS, defaults (Drive +18 dB, Mix 50 %%, Auto Gain on) ==\n");
-    auto* modeP  = findParam (*plugin, "Mode");
-    auto* mixP   = findParam (*plugin, "Mix");
-    auto* bypP   = plugin->getBypassParameter();
+    // ---- meter view: IN vs OUT across the XY pad ----
+    std::printf ("\n== Meter view: IN vs OUT, 220 Hz sine @ -12 dBFS (defaults, AERO 70 %%) ==\n");
+    auto* balP = findParam (*plugin, "Glass-Bubbles");
+    auto* airP = findParam (*plugin, "Air");
+    auto* bypP = plugin->getBypassParameter();
     for (auto* p : plugin->getParameters()) p->setValue (p->getDefaultValue());
     plugin->setPlayConfigDetails (2, 2, 48000.0, 256);
     plugin->prepareToPlay (48000.0, 256);
     std::printf ("  %-26s %9s %9s %9s %9s\n", "setting", "IN pk", "OUT pk", "IN rms", "OUT rms");
-    struct Row { const char* name; float mode, mix, byp; };
-    for (const Row& r : { Row { "Bypass", 0, 0.5f, 1 }, Row { "Luminous Warmth, mix 50%", 0, 0.5f, 0 },
-                          Row { "Luminous Warmth, mix 100%", 0, 1, 0 }, Row { "Neon Crunch, mix 50%", 1, 0.5f, 0 },
-                          Row { "Neon Crunch, mix 100%", 1, 1, 0 } })
+    struct Row { const char* name; float bal, air, byp; };
+    for (const Row& r : { Row { "Bypass", 0.5f, 0.5f, 1 }, Row { "Glass (left)", 0.0f, 0.3f, 0 },
+                          Row { "Glass + Bubbles (centre)", 0.5f, 0.5f, 0 }, Row { "Bubbles (right)", 1.0f, 0.3f, 0 },
+                          Row { "Centre, full Air", 0.5f, 1.0f, 0 } })
     {
-        setReal (modeP, r.mode); setReal (mixP, r.mix); setReal (bypP, r.byp);
+        setReal (balP, r.bal); setReal (airP, r.air); setReal (bypP, r.byp);
         const auto l = processSignal (*plugin, 48000.0, 256, 220.0f, 0.251f, 2);
         std::printf ("  %-26s %+8.2f %+8.2f %+8.2f %+8.2f  dBFS\n", r.name, db (l.inPk), db (l.outPk), db (l.inRms), db (l.outRms));
+        check (l.outPk < 1.0f, juce::String ("   ") + r.name + ": output stays below 0 dBFS");
     }
     setReal (bypP, 0);
 
