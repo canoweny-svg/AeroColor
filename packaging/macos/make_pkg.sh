@@ -11,8 +11,10 @@
 #    PKG_SIGN_ID   "Developer ID Installer: Your Name (TEAMID)"     — signs the .pkg
 #    NOTARY_PROFILE  keychain profile created with `xcrun notarytool store-credentials`
 #    AAX: must be PACE-wrapped (wraptool) BEFORE running this script.
-#  Without the IDs the script still builds an unsigned .pkg (local testing only;
-#  Gatekeeper will block it on other machines).
+#  Without the IDs the script still builds an unsigned .pkg: it installs fine,
+#  but on other Macs the user must allow it once (right-click → Open, or
+#  System Settings → Privacy & Security → Open Anyway). Files installed by a
+#  .pkg are NOT quarantined, so the plug-ins then load without any Terminal step.
 # =============================================================================
 set -euo pipefail
 ART="${1:?artefacts dir}"; VER="${2:?version}"
@@ -27,7 +29,13 @@ component() {   # $1 = bundle path, $2 = install location, $3 = id suffix
     sign "$1"
     local root="$WORK/root-$3"; mkdir -p "$root"
     cp -R "$1" "$root/"
-    pkgbuild --root "$root" --install-location "$2" --identifier "$ID.$3" --version "$VER" "$WORK/$3.pkg"
+    # Never "relocate": without this, Installer may write into an older copy found
+    # elsewhere on disk instead of the standard plug-in folder.
+    local plist="$WORK/$3.plist"
+    pkgbuild --analyze --root "$root" "$plist"
+    /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$plist"
+    pkgbuild --root "$root" --component-plist "$plist" --install-location "$2" \
+             --identifier "$ID.$3" --version "$VER" "$WORK/$3.pkg"
     CHOICES+=("$3")
 }
 
@@ -44,7 +52,13 @@ DIST="$WORK/distribution.xml"
   echo "<title>$NAME $VER</title><options customize=\"allow\" require-scripts=\"false\" hostArchitectures=\"arm64,x86_64\"/>"
   echo '<choices-outline>'; for c in "${CHOICES[@]}"; do echo "<line choice=\"$c\"/>"; done; echo '</choices-outline>'
   for c in "${CHOICES[@]}"; do
-    echo "<choice id=\"$c\" title=\"$(echo "$c" | tr a-z A-Z)\"><pkg-ref id=\"$ID.$c\"/></choice>"
+    case "$c" in
+      vst3) title="VST3 plug-in (Studio One, Ableton, FL Studio, Cubase, Bitwig...)" ;;
+      au) title="Audio Unit (Logic Pro, GarageBand)" ;;
+      aax) title="AAX (Pro Tools)" ;;
+      *) title="AEROSOUND standalone app" ;;
+    esac
+    echo "<choice id=\"$c\" title=\"$title\"><pkg-ref id=\"$ID.$c\"/></choice>"
     echo "<pkg-ref id=\"$ID.$c\" version=\"$VER\">$c.pkg</pkg-ref>"
   done
   echo '</installer-gui-script>'
@@ -52,7 +66,8 @@ DIST="$WORK/distribution.xml"
 
 PKG="$OUT/AEROSOUND-$VER-macOS.pkg"
 SIGNARGS=(); [[ -n "${PKG_SIGN_ID:-}" ]] && SIGNARGS=(--sign "$PKG_SIGN_ID")
-productbuild --distribution "$DIST" --package-path "$WORK" "${SIGNARGS[@]}" "$PKG"
+# ${arr[@]+...} form: safe with `set -u` on macOS's bash 3.2 when the array is empty
+productbuild --distribution "$DIST" --package-path "$WORK" ${SIGNARGS[@]+"${SIGNARGS[@]}"} "$PKG"
 
 if [[ -n "${NOTARY_PROFILE:-}" ]]; then
     xcrun notarytool submit "$PKG" --keychain-profile "$NOTARY_PROFILE" --wait

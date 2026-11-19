@@ -65,3 +65,31 @@ jobs:
         with:
           name: AEROSOUND-${{ runner.os }}
           path: build/AeroSound_artefacts/
+
+      # ---------------- installers (one per OS) ----------------
+      - name: Installer (Windows setup.exe)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          & $iscc /DArtefacts="$PWD\build\AeroSound_artefacts\Release" /DVersion=1.0.0 packaging\windows\AeroSound.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist\windows
+
+      - name: Installer (macOS .pkg)
+        if: runner.os == 'macOS'
+        run: bash packaging/macos/make_pkg.sh build/AeroSound_artefacts/Release 1.0.0
+
+      - name: Installer (Linux .deb + .tar.gz)
+        if: runner.os == 'Linux'
+        run: |
+          bash packaging/linux/make_packages.sh build/AeroSound_artefacts/Release 1.0.0
+          sudo dpkg -i dist/linux/aerosound_1.0.0_amd64.deb
+          xvfb-run -a "$(find build -type f -name AeroSoundHostTest -path '*Release*' | head -1)" /usr/lib/vst3/AEROSOUND.vst3
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AEROSOUND-Installer-${{ runner.os }}
+          path: dist/
