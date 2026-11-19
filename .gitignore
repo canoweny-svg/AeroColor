@@ -13,3 +13,6 @@ Tests/output/
 # Packaging output
 dist/
 .DS_Store
+
+# Source archives handed out for download
+*.zip
