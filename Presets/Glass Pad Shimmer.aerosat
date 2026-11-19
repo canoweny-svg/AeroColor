@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AeroGlow example preset: airy, glassy lift for pads and keys.
+     Values are in real units (dB, %, Hz). Edit freely; unknown IDs are ignored. -->
+<AeroGlowPreset name="Glass Pad Shimmer" formatVersion="1" pluginVersion="1.0.0">
+  <PARAM id="inputGain" value="0.0"/>
+  <PARAM id="drive" value="15.0"/>
+  <PARAM id="mix" value="60.0"/>
+  <PARAM id="tone" value="25.0"/>
+  <PARAM id="bias" value="10.0"/>
+  <PARAM id="mode" value="0"/>
+  <PARAM id="highCut" value="12000.0"/>
+  <PARAM id="lowProtect" value="90.0"/>
+  <PARAM id="outputGain" value="0.0"/>
+  <PARAM id="autoGain" value="1"/>
+  <PARAM id="limiter" value="0"/>
+  <PARAM id="oversampling" value="1"/>
+</AeroGlowPreset>

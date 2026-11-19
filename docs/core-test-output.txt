@@ -1,0 +1,136 @@
+AeroGlow DSP core tests
+
+=== fastTanh accuracy (Padé 7/6) ===
+  [ ok ] max |fastTanh − tanh| = 9.58e-05 at x = 4.970 (|x| ≤ 8)
+
+=== Static transfer curves (bias = 0) ===
+      x     Luminous      Neon
+  -2.00    -1.7405    -1.0000
+  -1.50    -1.4002    -1.0000
+  -1.00    -0.9841    -0.9900
+  -0.50    -0.5071    -0.5000
+  +0.00    +0.0000    +0.0000
+  +0.50    +0.3869    +0.5000
+  +1.00    +0.5318    +0.9900
+  +1.50    +0.5691    +1.0000
+  +2.00    +0.5778    +1.0000
+  [ ok ] Luminous curve is monotonic (no fold-over)
+  [ ok ] both curves pass through 0 (no DC step at silence)
+  [ ok ] Luminous small-signal slope = 1.0000 (≈1, level independent of bias)
+  [ ok ] Neon is flat above the rail (hard clip)
+  [ ok ] Luminous still rising at 1.5→3 (soft plateau)
+  [ ok ] Luminous is asymmetric (+1 → +0.5318, −1 → -0.9841)
+
+=== Function test: 1 kHz sine @ −6 dBFS, drive 12 dB, mix 100 % (first values after latency) ===
+  Luminous (latency 55 smp)
+   n      in        out
+  2400  +0.00000  +0.14221
+  2401  +0.06526  +0.17131
+  2402  +0.12941  +0.19180
+  2403  +0.19134  +0.20582
+  2404  +0.25000  +0.21530
+  2405  +0.30438  +0.22174
+  2406  +0.35355  +0.22615
+  2407  +0.39668  +0.22922
+  2408  +0.43301  +0.23133
+  2409  +0.46194  +0.23274
+  2410  +0.48296  +0.23356
+  2411  +0.49572  +0.23381
+  Neon     (latency 55 smp)
+   n      in        out
+  2400  +0.00000  +0.14466
+  2401  +0.06526  +0.20685
+  2402  +0.12941  +0.26229
+  2403  +0.19134  +0.30065
+  2404  +0.25000  +0.32102
+  2405  +0.30438  +0.33493
+  2406  +0.35355  +0.34836
+  2407  +0.39668  +0.36035
+  2408  +0.43301  +0.37073
+  2409  +0.46194  +0.38019
+  2410  +0.48296  +0.38914
+  2411  +0.49572  +0.39761
+
+=== Harmonic signature (sine ≈1 kHz, −12 dBFS peak, mix 100 %, FFT 32768, Blackman-Harris) ===
+  mode      drive    H2      H3      H4      H5      H6      H7    | even    odd     THD  (dB re H1)
+  Luminous     6    -24.2   -32.7   -58.6   -53.6   -70.6   -68.0 |  -24.2  -32.6  -23.6
+  Luminous    18    -15.5   -23.4   -39.6   -37.2   -61.6   -48.4 |  -15.5  -23.2  -14.8
+  Luminous    30    -12.5   -18.1   -23.9   -29.1   -35.5   -36.2 |  -12.2  -17.7  -11.1
+  Neon         6   -150.0  -150.0  -150.0  -150.0  -150.0  -150.0 | -150.0 -150.0 -150.0
+  Neon        18   -150.0   -20.4  -150.0   -32.9  -150.0   -41.8 | -150.0  -20.1  -20.1
+  Neon        30   -150.0   -11.4  -150.0   -17.9  -150.0   -22.9 | -150.0  -10.3  -10.3
+  [ ok ] Luminous @18 dB: 2nd harmonic dominates the 3rd (-15.5 vs -23.4 dB)
+  [ ok ] Luminous @18 dB: even > odd energy (-15.5 vs -23.2 dB)
+  [ ok ] Neon @18 dB, bias 0: odd-dominant (odd−even = 129.9 dB)
+  [ ok ] modes differ clearly in even/odd balance
+  [ ok ] Neon @30 dB has more high-order (5th/7th) content than Luminous: -17.9/-22.9 vs -29.1/-36.2 dB
+  [ ok ] Luminous THD rises monotonically with drive
+  [ ok ] Neon THD rises monotonically with drive
+  [ ok ] Neon Bias +100 % raises even harmonics: -150.0 → -18.3 dB
+
+=== Aliasing (engine only, 4.99 kHz sine @ −6 dBFS, drive 30 dB, fs 48 k, inharmonic power 20 Hz–20 kHz) ===
+  engine           OS   non-harmonic power re H1
+  Luminous        1x     -24.7 dB
+  Luminous        2x     -49.7 dB
+  Luminous        4x     -73.6 dB
+  Neon            1x     -13.2 dB
+  Neon            2x     -21.9 dB
+  Neon            4x     -36.7 dB
+  [ ok ] Luminous: each OS step lowers audible aliasing (1x -24.7 → 2x -49.7 → 4x -73.6 dB)
+  [ ok ] Luminous 2× (default) audible alias floor below −45 dB (-49.7 dB)
+  [ ok ] Neon: 4× cuts audible aliasing by > 20 dB vs 1× (-13.2 → -36.7 dB)
+
+=== Latency reporting & alignment ===
+  fs  44100 Hz: latency 55 samples (1.247 ms), OS factors Lum2x/Lum4x/Neon = 2/4/4
+  fs  48000 Hz: latency 55 samples (1.146 ms), OS factors Lum2x/Lum4x/Neon = 2/4/4
+  fs  96000 Hz: latency 55 samples (0.573 ms), OS factors Lum2x/Lum4x/Neon = 2/4/4
+  fs 192000 Hz: latency 47 samples (0.245 ms), OS factors Lum2x/Lum4x/Neon = 1/2/2
+  fs 384000 Hz: latency  0 samples (0.000 ms), OS factors Lum2x/Lum4x/Neon = 1/1/1
+  [ ok ] bypass             burst centre at 1055, expected 1055 (reported latency 55)
+  [ ok ] dry (mix 0)        burst centre at 1055, expected 1055 (reported latency 55)
+  [ ok ] Luminous 2x wet    burst centre at 1055, expected 1055 (reported latency 55)
+  [ ok ] Luminous 4x wet    burst centre at 1055, expected 1055 (reported latency 55)
+  [ ok ] Neon 4x wet        burst centre at 1055, expected 1055 (reported latency 55)
+  [ ok ] bypass output == input delayed by exactly 55 samples (max diff 0)
+
+=== Mix phase coherence (drive 0 dB, −60 dBFS sine, Tone 0, High-Cut off) ===
+  [ ok ] Luminous     60 Hz: wet−dry phase  6.69°, wet/dry level +0.00 dB, mix 50% vs mean -0.01 dB
+  [ ok ] Luminous    200 Hz: wet−dry phase  2.11°, wet/dry level +0.05 dB, mix 50% vs mean -0.00 dB
+  [ ok ] Luminous   1000 Hz: wet−dry phase  0.93°, wet/dry level +0.06 dB, mix 50% vs mean -0.00 dB
+  [ ok ] Luminous   5000 Hz: wet−dry phase  3.12°, wet/dry level +0.09 dB, mix 50% vs mean -0.00 dB
+  [ ok ] Luminous  12000 Hz: wet−dry phase  6.84°, wet/dry level +1.00 dB, mix 50% vs mean -0.02 dB
+  [ ok ] Neon         60 Hz: wet−dry phase  1.10°, wet/dry level -0.07 dB, mix 50% vs mean -0.00 dB
+  [ ok ] Neon        200 Hz: wet−dry phase  2.76°, wet/dry level -0.33 dB, mix 50% vs mean -0.00 dB
+  [ ok ] Neon       1000 Hz: wet−dry phase  4.38°, wet/dry level -0.04 dB, mix 50% vs mean -0.01 dB
+  [ ok ] Neon       5000 Hz: wet−dry phase  4.86°, wet/dry level +0.38 dB, mix 50% vs mean -0.01 dB
+  [ ok ] Neon      12000 Hz: wet−dry phase  2.22°, wet/dry level -0.27 dB, mix 50% vs mean -0.00 dB
+
+=== Auto make-up accuracy (pink noise −18 dBFS RMS, mix 100 %, wet re dry level) ===
+  Luminous  drive:  +0.0  +0.0  +0.0  -0.0  +0.0  -0.0  +0.0  +0.0  -0.0  -0.0  +0.0  -0.0  +0.0  (dB, 0…36 step 3)
+  [ ok ] Luminous: loudness held within ±0.00 dB of dry across the full drive range
+  Neon      drive:  +0.0  +0.1  +0.1  +0.1  +0.1  +0.2  +0.2  +0.2  +0.2  +0.2  +0.2  +0.2  +0.2  (dB, 0…36 step 3)
+  [ ok ] Neon    : loudness held within ±0.16 dB of dry across the full drive range
+
+=== Click-free switching (mode / oversampling / bypass toggled every 3000 samples) ===
+  worst discontinuity at sample 43511 (1511 samples after toggle #14)
+  [ ok ] max |Δ²| with 15 switches = 0.0001 vs steady-state max 0.0001 (ratio 1.06)
+
+=== Robustness: random automation, extreme input, odd block sizes, all sample rates ===
+  [ ok ] 563 randomised blocks (1…2048 smp, NaN/Inf/+24 dBFS/DC input, out-of-range params): all output finite
+  [ ok ] non-finite guard never needed to fire (0 resets)
+  [ ok ] safety limiter holds −0.3 dBFS ceiling at +24 dB in / +36 dB drive / +24 dB out
+
+=== CPU benchmark (10 s stereo @ 48 kHz, 256-sample blocks, single core) ===
+  Luminous 2x  0.150 s for 10 s audio → 1.50 % of one core, 67× realtime
+  Luminous 4x  0.191 s for 10 s audio → 1.91 % of one core, 52× realtime
+  Neon 4x      0.175 s for 10 s audio → 1.75 % of one core, 57× realtime
+
+=== Rendering listening files ===
+  wav/sweep_luminous.wav                   in  -15.0 dBFS RMS → out  -16.2 dBFS RMS
+  wav/sweep_neon.wav                       in  -15.0 dBFS RMS → out  -15.9 dBFS RMS
+  wav/pad_luminous.wav                     in  -24.3 dBFS RMS → out  -21.6 dBFS RMS
+  wav/pad_neon.wav                         in  -24.3 dBFS RMS → out  -23.7 dBFS RMS
+  wav/drums_luminous.wav                   in  -20.9 dBFS RMS → out  -21.9 dBFS RMS
+  wav/drums_neon.wav                       in  -20.9 dBFS RMS → out  -21.1 dBFS RMS
+
+ALL PASSED — 0 failed check(s)

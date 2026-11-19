@@ -1,0 +1,64 @@
+# Cross-platform CI: builds VST3 + Standalone (+ AU on macOS), runs the DSP
+# core tests and the plugin-hosting smoke test on every OS.
+# AAX is not built in CI (needs the Avid SDK + PACE signing; see README).
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, generator: "Visual Studio 17 2022" }
+          - { os: macos-latest,   generator: "Xcode" }
+          - { os: ubuntu-latest,  generator: "Ninja" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xvfb libasound2-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev libxext-dev libxcomposite-dev \
+            libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: DSP core tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Host smoke test (VST3)
+        shell: bash
+        run: |
+          HOST=$(find build -type f \( -name AeroGlowHostTest -o -name AeroGlowHostTest.exe \) -path "*Release*" | head -1)
+          VST3=$(find build -type d -name "AeroGlow Saturator.vst3" -path "*Release*" | head -1)
+          echo "host=$HOST vst3=$VST3"
+          if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a "$HOST" "$VST3"; else "$HOST" "$VST3"; fi
+
+      - name: Host smoke test (AU, macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          AU=$(find build -type d -name "AeroGlow Saturator.component" -path "*Release*" | head -1)
+          mkdir -p ~/Library/Audio/Plug-Ins/Components && cp -R "$AU" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar || true
+          auval -v aufx AgSt Aero
+          HOST=$(find build -type f -name AeroGlowHostTest -path "*Release*" | head -1)
+          "$HOST" ~/Library/Audio/Plug-Ins/Components/"AeroGlow Saturator.component"
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: AeroGlow-${{ runner.os }}
+          path: build/AeroGlow_artefacts/

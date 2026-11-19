@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AeroGlow example preset: punchy, crunchy drum bus with clean low end. -->
+<AeroGlowPreset name="Neon Drum Bus" formatVersion="1" pluginVersion="1.0.0">
+  <PARAM id="inputGain" value="0.0"/>
+  <PARAM id="drive" value="20.0"/>
+  <PARAM id="mix" value="45.0"/>
+  <PARAM id="tone" value="0.0"/>
+  <PARAM id="bias" value="0.0"/>
+  <PARAM id="mode" value="1"/>
+  <PARAM id="highCut" value="11000.0"/>
+  <PARAM id="lowProtect" value="110.0"/>
+  <PARAM id="outputGain" value="0.0"/>
+  <PARAM id="autoGain" value="1"/>
+  <PARAM id="limiter" value="1"/>
+  <PARAM id="oversampling" value="0"/>
+</AeroGlowPreset>

@@ -1,0 +1,15 @@
+# Build trees
+build/
+build-*/
+cmake-build-*/
+out/
+.vs/
+*.xcodeproj/
+# Local JUCE checkout / downloaded SDKs (point JUCE_DIR / AEROGLOW_AAX_SDK_PATH at them)
+deps/
+# Rendered test audio
+Tests/output/
+*.wav
+# Packaging output
+dist/
+.DS_Store
