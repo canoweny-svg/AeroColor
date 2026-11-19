@@ -16,9 +16,9 @@ jobs:
         include:
           # Windows: no -G, CMake picks the newest Visual Studio on the runner
           - { os: windows-latest, cmake_args: "-A x64" }
-          # macos-14: Apple Silicon image that is usually less congested than macos-latest.
+          # Intel macOS image: its queue is far shorter than the Apple Silicon one.
           # Still builds a Universal binary (arm64 + x86_64) via CMAKE_OSX_ARCHITECTURES.
-          - { os: macos-14,       cmake_args: "-G Xcode" }
+          - { os: macos-15-intel, cmake_args: "-G Xcode" }
           - { os: ubuntu-latest,  cmake_args: "-G Ninja" }
     runs-on: ${{ matrix.os }}
     steps:
