@@ -33,7 +33,12 @@ component() {   # $1 = bundle path, $2 = install location, $3 = id suffix
     # elsewhere on disk instead of the standard plug-in folder.
     local plist="$WORK/$3.plist"
     pkgbuild --analyze --root "$root" "$plist"
-    /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$plist"
+    # pkgbuild may list 0…n bundles (e.g. none for a .vst3): patch every entry present.
+    local i=0
+    while /usr/libexec/PlistBuddy -c "Print :$i" "$plist" >/dev/null 2>&1; do
+        /usr/libexec/PlistBuddy -c "Set :$i:BundleIsRelocatable false" "$plist"
+        i=$((i + 1))
+    done
     pkgbuild --root "$root" --component-plist "$plist" --install-location "$2" \
              --identifier "$ID.$3" --version "$VER" "$WORK/$3.pkg"
     CHOICES+=("$3")
