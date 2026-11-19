@@ -27,61 +27,79 @@ float LevelMeter::dbToY (float db, juce::Rectangle<float> r) const
     return r.getBottom() - t * r.getHeight();
 }
 
+// Crisp LED-style meter: every edge sits on a whole pixel, segments are flat
+// colours (no blurry gradients), dB scale numbers between the two channels,
+// peak readout in a dark glass display.
 void LevelMeter::paint (juce::Graphics& g)
 {
-    auto area = getLocalBounds().toFloat();
-    auto captionArea = area.removeFromBottom (18.0f);
-    auto readout = area.removeFromTop (16.0f);
-    auto tubes = area.reduced (4.0f, 2.0f);
+    auto area = getLocalBounds();
+    auto captionArea = area.removeFromBottom (18);
+    auto readout = area.removeFromTop (20).reduced (2, 1);
+    area.removeFromTop (6);
+    auto bars = area.reduced (0, 2);
 
-    const float gap = 4.0f, tw = (tubes.getWidth() - gap) * 0.5f;
-    for (int ch = 0; ch < 2; ++ch)
-    {
-        auto t = juce::Rectangle<float> (tubes.getX() + (float) ch * (tw + gap), tubes.getY(), tw, tubes.getHeight());
-        const float cr = tw * 0.5f;
-
-        // Glass tube
-        g.setColour (juce::Colour (0x33002a40));
-        g.fillRoundedRectangle (t, cr);
-
-        // Fill: aqua → white → amber → red near 0 dBFS
-        const float top = dbToY (levelDb[ch], t);
-        if (levelDb[ch] > kMinDb)
-        {
-            juce::ColourGradient grad (juce::Colour (0xff1f9fd8), t.getX(), t.getBottom(), juce::Colour (0xffff4a3a), t.getX(), t.getY(), false);
-            grad.addColour ((double) ((-18.0f - kMinDb) / (kMaxDb - kMinDb)), colours::aqua);
-            grad.addColour ((double) ((-6.0f - kMinDb) / (kMaxDb - kMinDb)), colours::aquaLight);
-            grad.addColour ((double) ((-1.0f - kMinDb) / (kMaxDb - kMinDb)), juce::Colour (0xffffc04a));
-            g.setGradientFill (grad);
-            g.fillRoundedRectangle (t.withTop (top), juce::jmin (cr, (t.getBottom() - top) * 0.5f));
-        }
-        // Peak hold line
-        g.setColour (holdDb[ch] > 0.0f ? juce::Colour (0xffff4a3a) : juce::Colours::white);
-        g.fillRect (t.getX() + 1.0f, dbToY (holdDb[ch], t) - 1.0f, t.getWidth() - 2.0f, 2.0f);
-
-        // Gloss stripe
-        g.setColour (juce::Colours::white.withAlpha (0.35f));
-        g.fillRoundedRectangle (t.withWidth (t.getWidth() * 0.35f).translated (t.getWidth() * 0.12f, 0.0f).reduced (0.0f, cr), 2.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.7f));
-        g.drawRoundedRectangle (t, cr, 1.0f);
-    }
-
-    // Scale ticks
-    g.setFont (AeroLookAndFeel::uiFont (9.5f));
-    for (float db : { 0.0f, -6.0f, -12.0f, -24.0f, -36.0f })
-    {
-        const float y = dbToY (db, tubes);
-        g.setColour (colours::ink.withAlpha (0.35f));
-        g.drawHorizontalLine ((int) y, tubes.getX() - 3.0f, tubes.getX());
-        g.drawHorizontalLine ((int) y, tubes.getRight(), tubes.getRight() + 3.0f);
-    }
-
+    // ---- peak readout ----
     const float hold = juce::jmax (holdDb[0], holdDb[1]);
-    g.setColour (hold > 0.0f ? juce::Colour (0xffd8302a) : colours::ink);
-    g.setFont (AeroLookAndFeel::uiFont (11.0f, true));
+    g.setColour (colours::deepBlue.withAlpha (0.88f));
+    g.fillRoundedRectangle (readout.toFloat(), 4.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.55f));
+    g.drawRoundedRectangle (readout.toFloat().reduced (0.5f), 4.0f, 1.0f);
+    g.setColour (hold > -0.1f ? juce::Colour (0xffff6b5a) : juce::Colour (0xffbff4ff));
+    g.setFont (AeroLookAndFeel::uiFont (12.0f, true));
     g.drawText (hold <= kMinDb ? juce::String ("-inf") : juce::String (hold, 1), readout, juce::Justification::centred);
 
-    g.setColour (colours::inkSoft);
+    // ---- geometry: [bar L] [scale] [bar R] ----
+    const int barW = 14;
+    const int scaleW = bars.getWidth() - 2 * barW;
+    const juce::Rectangle<int> barRect[2] = { bars.withWidth (barW), bars.withX (bars.getRight() - barW).withWidth (barW) };
+    const auto scaleRect = bars.withX (bars.getX() + barW).withWidth (scaleW);
+
+    constexpr int segH = 3, gap = 1;
+    const int numSegs = bars.getHeight() / (segH + gap);
+
+    auto segColour = [] (float db)
+    {
+        if (db > -1.0f)  return juce::Colour (0xffff4a3a);
+        if (db > -6.0f)  return juce::Colour (0xffffc04a);
+        if (db > -18.0f) return juce::Colour (0xffa8f0ff);
+        return juce::Colour (0xff2ec8f5);
+    };
+
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        const auto& br = barRect[ch];
+        g.setColour (colours::deepBlue.withAlpha (0.82f));                 // dark well
+        g.fillRect (br.expanded (2));
+        for (int s = 0; s < numSegs; ++s)
+        {
+            const int y = br.getBottom() - (s + 1) * (segH + gap) + gap;
+            const float segDb = kMinDb + (kMaxDb - kMinDb) * ((float) s + 0.5f) / (float) numSegs;
+            const bool lit = segDb <= levelDb[ch];
+            g.setColour (lit ? segColour (segDb) : juce::Colours::white.withAlpha (0.07f));
+            g.fillRect (br.getX(), y, br.getWidth(), segH);
+        }
+        // peak-hold segment
+        if (holdDb[ch] > kMinDb)
+        {
+            const int y = (int) std::round (dbToY (holdDb[ch], br.toFloat()));
+            g.setColour (holdDb[ch] > -0.1f ? juce::Colour (0xffff4a3a) : juce::Colours::white);
+            g.fillRect (br.getX(), juce::jlimit (br.getY(), br.getBottom() - 2, y - 1), br.getWidth(), 2);
+        }
+        g.setColour (juce::Colours::white.withAlpha (0.6f));
+        g.drawRect (br.expanded (2), 1);
+    }
+
+    // ---- scale numbers ----
+    g.setFont (AeroLookAndFeel::uiFont (9.5f, true));
+    for (float db : { 6.0f, 0.0f, -6.0f, -12.0f, -24.0f, -36.0f, -48.0f })
+    {
+        const int y = (int) std::round (dbToY (db, bars.toFloat()));
+        g.setColour (colours::ink.withAlpha (0.85f));
+        g.drawText (db > 0 ? "+" + juce::String ((int) db) : juce::String ((int) db),
+                    scaleRect.getX(), y - 6, scaleRect.getWidth(), 12, juce::Justification::centred);
+    }
+
+    g.setColour (colours::ink.withAlpha (0.8f));
     g.setFont (AeroLookAndFeel::uiFont (11.0f, true));
     g.drawText (caption, captionArea, juce::Justification::centred);
 }

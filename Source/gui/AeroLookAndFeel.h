@@ -37,6 +37,7 @@ public:
     juce::Font getComboBoxFont (juce::ComboBox&) override;
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
     juce::Label* createSliderTextBox (juce::Slider&) override;
+    void drawLabel (juce::Graphics&, juce::Label&) override;
     void drawTooltip (juce::Graphics&, const juce::String& text, int w, int h) override;
 
     // Shared helpers (also used by the editor / custom components)

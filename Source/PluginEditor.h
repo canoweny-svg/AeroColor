@@ -38,7 +38,8 @@ private:
         Panel();
         void paint (juce::Graphics&) override;
     private:
-        juce::Image metal;
+        static void drawScene (juce::Graphics&);   // static art: sky, hills, glass, dividers
+        juce::Image art;                           // cached at 2× (rendered once)
     };
 
     struct Knob

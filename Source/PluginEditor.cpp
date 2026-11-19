@@ -24,44 +24,189 @@ namespace
 }
 
 // =============================================================================
+//  Background art: a Frutiger-Aero "wallpaper" drawn procedurally
+//  (sky → sun & rays → clouds → aurora swooshes → glossy hills → bokeh
+//  bubbles), then the frosted glass panels and engraved knob dividers.
+//  Rendered once into a 2× image; paint() just blits it.
+// =============================================================================
 AeroSoundEditor::Panel::Panel()
 {
     setSize (kBaseW, kBaseH);
-    metal = AeroLookAndFeel::createBrushedMetal (kBaseW * 2, kBaseH * 2, 0xA350);
+    art = juce::Image (juce::Image::ARGB, kBaseW * 2, kBaseH * 2, true);
+    juce::Graphics g (art);
+    g.addTransform (juce::AffineTransform::scale (2.0f));
+    drawScene (g);
     setOpaque (true);
 }
 
 void AeroSoundEditor::Panel::paint (juce::Graphics& g)
 {
-    const auto b = getLocalBounds().toFloat();
-    g.drawImage (metal, b, juce::RectanglePlacement::stretchToFit);
+    g.drawImage (art, getLocalBounds().toFloat(), juce::RectanglePlacement::stretchToFit);
+}
 
-    // Aero sky glow + fresh green corner
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0x6036c6ff), 0, 0, juce::Colour (0x0036c6ff), b.getWidth() * 0.6f, b.getHeight() * 0.6f, true));
-    g.fillRect (b);
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0x307ee08a), b.getRight(), b.getBottom(),
-                                             juce::Colour (0x007ee08a), b.getRight() - 300.0f, b.getBottom() - 300.0f, true));
-    g.fillRect (b);
+namespace
+{
+    void glossyHill (juce::Graphics& g, juce::Path hill, juce::Colour top, juce::Colour bottom, float y0, float y1)
+    {
+        g.setGradientFill (juce::ColourGradient (top, 0, y0, bottom, 0, y1, false));
+        g.fillPath (hill);
+        // wet highlight hugging the crest
+        juce::Graphics::ScopedSaveState s (g);
+        g.reduceClipRegion (hill);
+        g.setColour (juce::Colours::white.withAlpha (0.55f));
+        g.strokePath (hill, juce::PathStrokeType (3.0f));
+        g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.35f), 0, y0,
+                                                 juce::Colours::white.withAlpha (0.0f), 0, y0 + 40.0f, false));
+        g.fillRect (0.0f, y0, (float) AeroSoundEditor::kBaseW, 40.0f);
+    }
 
-    // Wordmark
-    g.setFont (AeroLookAndFeel::uiFont (30.0f, true));
-    g.setColour (juce::Colours::white.withAlpha (0.8f));
-    g.drawText ("AEROSOUND", 24, 13, 240, 34, juce::Justification::centredLeft);
-    g.setGradientFill (juce::ColourGradient (colours::deepBlue, 0, 12, juce::Colour (0xff1fa8e0), 0, 46, false));
-    g.drawText ("AEROSOUND", 24, 12, 240, 34, juce::Justification::centredLeft);
-    g.setFont (AeroLookAndFeel::uiFont (10.0f, true));
-    g.setColour (colours::inkSoft);
-    g.drawText (juce::String::fromUTF8 ("G L A S S   \xc2\xb7   B U B B L E S   \xc2\xb7   A I R"), 26, 44, 260, 14, juce::Justification::centredLeft);
+    void swoosh (juce::Graphics& g, float yL, float yM, float yR, float width, juce::Colour c)
+    {
+        juce::Path p;
+        p.startNewSubPath (-20.0f, yL);
+        p.cubicTo (220.0f, yM - 60.0f, 520.0f, yM + 60.0f, 780.0f, yR);
+        for (int i = 4; i >= 1; --i)
+        {
+            g.setColour (c.withMultipliedAlpha (0.18f / (float) i));
+            g.strokePath (p, juce::PathStrokeType (width * (float) i * 0.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+        g.setColour (juce::Colours::white.withAlpha (0.55f));
+        g.strokePath (p, juce::PathStrokeType (1.2f));
+    }
 
+    // Engraved glass divider: a bright line beside a faint dark one.
+    void dividerV (juce::Graphics& g, float x, float y0, float y1)
+    {
+        g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.0f), x, y0, juce::Colours::white.withAlpha (0.0f), x, y1, false));
+        juce::ColourGradient gw (juce::Colours::white.withAlpha (0.0f), x, y0, juce::Colours::white.withAlpha (0.0f), x, y1, false);
+        gw.addColour (0.5, juce::Colours::white.withAlpha (0.85f));
+        g.setGradientFill (gw);
+        g.fillRect (x, y0, 1.0f, y1 - y0);
+        juce::ColourGradient gd (colours::deepBlue.withAlpha (0.0f), x, y0, colours::deepBlue.withAlpha (0.0f), x, y1, false);
+        gd.addColour (0.5, colours::deepBlue.withAlpha (0.22f));
+        g.setGradientFill (gd);
+        g.fillRect (x - 1.0f, y0, 1.0f, y1 - y0);
+    }
+    void dividerH (juce::Graphics& g, float x0, float x1, float y)
+    {
+        juce::ColourGradient gw (juce::Colours::white.withAlpha (0.0f), x0, y, juce::Colours::white.withAlpha (0.0f), x1, y, false);
+        gw.addColour (0.5, juce::Colours::white.withAlpha (0.85f));
+        g.setGradientFill (gw);
+        g.fillRect (x0, y, x1 - x0, 1.0f);
+        juce::ColourGradient gd (colours::deepBlue.withAlpha (0.0f), x0, y, colours::deepBlue.withAlpha (0.0f), x1, y, false);
+        gd.addColour (0.5, colours::deepBlue.withAlpha (0.22f));
+        g.setGradientFill (gd);
+        g.fillRect (x0, y - 1.0f, x1 - x0, 1.0f);
+    }
+}
+
+void AeroSoundEditor::Panel::drawScene (juce::Graphics& g)
+{
+    const float W = (float) kBaseW, H = (float) kBaseH;
+
+    // ---- sky ----
+    juce::ColourGradient sky (juce::Colour (0xff0f6fd8), 0, 0, juce::Colour (0xffe9fbff), 0, H * 0.78f, false);
+    sky.addColour (0.45, juce::Colour (0xff58bdf6));
+    sky.addColour (0.75, juce::Colour (0xffaee9ff));
+    g.setGradientFill (sky);
+    g.fillAll();
+
+    // ---- sun glow + rays (top right) ----
+    const juce::Point<float> sun (640.0f, 30.0f);
+    for (int i = 0; i < 9; ++i)
+    {
+        const float a = 1.75f + 0.17f * (float) i;
+        juce::Path ray;
+        ray.startNewSubPath (sun);
+        ray.lineTo (sun.x + 900.0f * std::cos (a - 0.035f), sun.y + 900.0f * std::sin (a - 0.035f));
+        ray.lineTo (sun.x + 900.0f * std::cos (a + 0.035f), sun.y + 900.0f * std::sin (a + 0.035f));
+        ray.closeSubPath();
+        g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.22f), sun.x, sun.y,
+                                                 juce::Colours::white.withAlpha (0.0f), sun.x - 250.0f, sun.y + 500.0f, true));
+        g.fillPath (ray);
+    }
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.95f), sun.x, sun.y,
+                                             juce::Colours::white.withAlpha (0.0f), sun.x + 230.0f, sun.y, true));
+    g.fillEllipse (sun.x - 230.0f, sun.y - 230.0f, 460.0f, 460.0f);
+
+    // ---- soft clouds ----
+    struct Cloud { float x, y, w, h; };
+    for (auto c : { Cloud { 90, 40, 260, 70 }, Cloud { 180, 25, 200, 50 }, Cloud { 420, 60, 240, 60 }, Cloud { 30, 130, 180, 46 } })
+        for (int i = 0; i < 6; ++i)
+        {
+            const float k = 1.0f - (float) i * 0.14f;
+            g.setColour (juce::Colours::white.withAlpha (0.09f));
+            g.fillEllipse (c.x + c.w * (1.0f - k) * 0.5f, c.y + c.h * (1.0f - k) * 0.5f, c.w * k, c.h * k);
+        }
+
+    // ---- aurora swooshes ----
+    swoosh (g, 300.0f, 250.0f, 190.0f, 26.0f, juce::Colour (0xffbffaff));
+    swoosh (g, 360.0f, 300.0f, 260.0f, 18.0f, juce::Colour (0xff8ff0c8));
+    swoosh (g, 230.0f, 200.0f, 330.0f, 12.0f, juce::Colours::white);
+
+    // ---- glossy green hills ----
+    juce::Path back;
+    back.startNewSubPath (0, H * 0.80f);
+    back.cubicTo (W * 0.25f, H * 0.68f, W * 0.55f, H * 0.86f, W, H * 0.72f);
+    back.lineTo (W, H); back.lineTo (0, H); back.closeSubPath();
+    glossyHill (g, back, juce::Colour (0xff8fe36a), juce::Colour (0xff2f9c3c), H * 0.70f, H);
+    juce::Path front;
+    front.startNewSubPath (0, H * 0.90f);
+    front.cubicTo (W * 0.35f, H * 0.80f, W * 0.70f, H * 0.98f, W, H * 0.86f);
+    front.lineTo (W, H); front.lineTo (0, H); front.closeSubPath();
+    glossyHill (g, front, juce::Colour (0xffb9f27e), juce::Colour (0xff47b443), H * 0.82f, H);
+
+    // ---- bokeh bubbles ----
+    juce::Random rng (0xAE50);
+    for (int i = 0; i < 26; ++i)
+    {
+        const float r = 3.0f + rng.nextFloat() * rng.nextFloat() * 22.0f;
+        const float x = rng.nextFloat() * W, y = rng.nextFloat() * H;
+        auto e = juce::Rectangle<float> (r * 2.0f, r * 2.0f).withCentre ({ x, y });
+        g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.0f), x, y,
+                                                 juce::Colours::white.withAlpha (0.5f), x + r, y, true));
+        g.fillEllipse (e);
+        g.setColour (juce::Colours::white.withAlpha (0.6f));
+        g.drawEllipse (e, 0.8f);
+        g.fillEllipse (juce::Rectangle<float> (r * 0.5f, r * 0.32f).withCentre ({ x - r * 0.35f, y - r * 0.42f }));
+    }
+
+    // ---- wordmark: glossy white with a blue glow ----
+    g.setFont (AeroLookAndFeel::uiFont (32.0f, true));
+    for (int i = 3; i >= 1; --i)
+    {
+        g.setColour (colours::deepBlue.withAlpha (0.10f * (float) i));
+        g.drawText ("AEROSOUND", 24 - i, 18 + i, 260, 34, juce::Justification::centredLeft);
+    }
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white, 0, 20, juce::Colour (0xffcdeeff), 0, 50, false));
+    g.drawText ("AEROSOUND", 24, 17, 260, 34, juce::Justification::centredLeft);
+
+    // ---- frosted glass panels ----
     for (auto p : { kAeroPanel, kPadPanel, kRightPanel, kGlassPanel, kBubblePanel })
-        AeroLookAndFeel::drawGlassPanel (g, p.toFloat(), 16.0f);
+    {
+        auto r = p.toFloat();
+        g.setColour (juce::Colour (0xffe8fbff).withAlpha (0.38f));   // aqua-white frost so text reads on the sky
+        g.fillRoundedRectangle (r, 16.0f);
+        AeroLookAndFeel::drawGlassPanel (g, r, 16.0f);
+    }
 
     caption (g, kAeroPanel, "AERO");
     caption (g, kGlassPanel, "GLASS");
     caption (g, kBubblePanel, "BUBBLES");
 
-    g.setFont (AeroLookAndFeel::uiFont (11.0f));
-    g.setColour (colours::inkSoft);
+    // ---- engraved dividers between knob columns ----
+    const float top = (float) kGlassPanel.getY() + 30.0f, bot = (float) kGlassPanel.getY() + 128.0f;
+    dividerV (g, (float) kGlassPanel.getX() + 112.5f, top, bot);
+    dividerV (g, (float) kGlassPanel.getX() + 217.5f, top, bot);
+    const float bw = (float) (kBubblePanel.getWidth() - 20) / 5.0f;
+    for (int i = 1; i < 5; ++i) dividerV (g, (float) kBubblePanel.getX() + 10.0f + bw * (float) i, top, bot);
+    dividerV (g, (float) kRightPanel.getX() + 72.0f, (float) kRightPanel.getY() + 14.0f, (float) kRightPanel.getBottom() - 14.0f);
+    dividerH (g, (float) kRightPanel.getX() + 82.0f, (float) kRightPanel.getRight() - 8.0f, (float) kRightPanel.getY() + 97.0f);
+    dividerH (g, (float) kRightPanel.getX() + 82.0f, (float) kRightPanel.getRight() - 8.0f, (float) kRightPanel.getY() + 191.0f);
+    dividerH (g, (float) kGlassPanel.getX() + 30.0f, (float) kGlassPanel.getRight() - 30.0f, (float) kGlassPanel.getY() + 136.0f);
+
+    g.setFont (AeroLookAndFeel::uiFont (11.0f, true));
+    g.setColour (colours::ink.withAlpha (0.65f));
     g.drawText ("Bubbles follow your audio, always in your key",
                 kBubblePanel.withTrimmedTop (kBubblePanel.getHeight() - 36), juce::Justification::centred);
 }

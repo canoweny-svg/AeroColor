@@ -74,7 +74,7 @@ void AeroLookAndFeel::drawGlassPanel (juce::Graphics& g, juce::Rectangle<float> 
 
     // Body: translucent white → faint aqua
     g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.42f * opacity), r.getX(), r.getY(),
-                                             juce::Colour (0xffd8f6ff).withAlpha (0.22f * opacity), r.getX(), r.getBottom(), false));
+                                             juce::Colour (0xffc6f1ff).withAlpha (0.30f * opacity), r.getX(), r.getBottom(), false));
     g.fillPath (p);
 
     // Upper gloss (the signature Aero "wet" highlight)
@@ -144,7 +144,8 @@ void AeroLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, 
     const float angle = a0 + pos * (a1 - a0);
 
     // --- brushed bezel ring ---
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xfffbfdff), c.x, r.getY(), juce::Colour (0xff8d9aa3), c.x, r.getBottom(), false));
+    // glass bezel: white → aqua (no grey metal)
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xffffffff), c.x, r.getY(), juce::Colour (0xff86cfee), c.x, r.getBottom(), false));
     g.fillEllipse (r);
     g.setColour (juce::Colour (0x40000000));
     g.drawEllipse (r, 1.0f);
@@ -292,6 +293,36 @@ juce::Label* AeroLookAndFeel::createSliderTextBox (juce::Slider& s)
     l->setColour (juce::TextEditor::backgroundColourId, juce::Colours::white);
     l->setJustificationType (juce::Justification::centred);
     return l;
+}
+
+// Slider value read-outs: a crisp dark-glass capsule sized to the text
+// (instead of a full-width box), so each knob reads like a small display.
+void AeroLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
+{
+    if (dynamic_cast<juce::Slider*> (label.getParentComponent()) == nullptr || label.isBeingEdited())
+    {
+        LookAndFeel_V4::drawLabel (g, label);
+        return;
+    }
+    const auto font = uiFont (12.0f, true);
+    const auto text = label.getText();
+    const float tw = juce::GlyphArrangement::getStringWidth (font, text);
+    auto b = label.getLocalBounds().toFloat();
+    auto pill = juce::Rectangle<float> (juce::jmin (b.getWidth() - 2.0f, tw + 18.0f), b.getHeight() - 1.0f).withCentre (b.getCentre());
+    pill = pill.withY (std::round (pill.getY())).withX (std::round (pill.getX()));   // whole pixels = sharp edges
+    const float r = pill.getHeight() * 0.5f;
+
+    g.setColour (colours::deepBlue.withAlpha (0.85f));
+    g.fillRoundedRectangle (pill, r);
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.28f), 0, pill.getY(),
+                                             juce::Colours::white.withAlpha (0.0f), 0, pill.getCentreY(), false));
+    g.fillRoundedRectangle (pill.withHeight (pill.getHeight() * 0.5f).reduced (2.0f, 0.5f), r * 0.8f);
+    g.setColour (juce::Colours::white.withAlpha (0.6f));
+    g.drawRoundedRectangle (pill.reduced (0.5f), r, 1.0f);
+
+    g.setColour (juce::Colour (0xffe6faff));
+    g.setFont (font);
+    g.drawText (text, pill, juce::Justification::centred, false);
 }
 
 void AeroLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int w, int h)
