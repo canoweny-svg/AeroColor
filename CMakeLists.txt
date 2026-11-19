@@ -164,8 +164,11 @@ if(AEROGLOW_BUILD_PLUGIN)
         add_dependencies(AeroGlowHostTest AeroGlow_VST3)
 
         # In-process editor renderer (README screenshots / visual check).
+        # Not built on Windows: JUCE's console-style JUCEApplicationBase::main
+        # entry point isn't available there (docs tool only, not needed to ship).
         # Links the plugin's shared-code library directly, so it reuses the
         # already-compiled JUCE modules (no duplicate module objects).
+      if(NOT WIN32)
         add_executable(AeroGlowSnapshot Tests/EditorSnapshot.cpp)
         target_compile_definitions(AeroGlowSnapshot PRIVATE
             $<TARGET_PROPERTY:AeroGlow,INTERFACE_COMPILE_DEFINITIONS>
@@ -174,5 +177,6 @@ if(AEROGLOW_BUILD_PLUGIN)
             $<TARGET_PROPERTY:AeroGlow,INCLUDE_DIRECTORIES>)
         target_compile_features(AeroGlowSnapshot PRIVATE cxx_std_20)
         target_link_libraries(AeroGlowSnapshot PRIVATE AeroGlow)
+      endif()
     endif()
 endif()
