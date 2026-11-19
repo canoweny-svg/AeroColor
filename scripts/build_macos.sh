@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build AeroGlow on macOS (Universal 2: arm64 + x86_64) with Xcode.
+# Build AEROSOUND on macOS (Universal 2: arm64 + x86_64) with Xcode.
 # Usage: scripts/build_macos.sh [Release|Debug] [path/to/AAX_SDK]
 set -euo pipefail
 CONFIG="${1:-Release}"

@@ -1,6 +1,6 @@
 ; =============================================================================
 ;  Inno Setup 6 script — Windows x64 installer for AEROSOUND.
-;  Build:  iscc /DArtefacts="..\..\build-win\AeroSound_artefacts\Release" /DVersion=1.0.0 AeroGlow.iss
+;  Build:  iscc /DArtefacts="..\..\build-win\AeroSound_artefacts\Release" /DVersion=1.0.0 AeroSound.iss
 ;  Installs:
 ;    VST3        → C:\Program Files\Common Files\VST3\AEROSOUND.vst3   (bundle folder)
 ;    AAX         → C:\Program Files\Common Files\Avid\Audio\Plug-Ins\           (only if built + PACE-signed)

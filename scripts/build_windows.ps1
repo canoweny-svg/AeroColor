@@ -1,4 +1,4 @@
-# Build AeroGlow on Windows with Visual Studio 2022 or newer (x64).
+# Build AEROSOUND on Windows with Visual Studio 2022 or newer (x64).
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1 [-Config Release|Debug] [-AaxSdk C:\SDKs\aax-sdk]
 param(
     [ValidateSet("Release", "Debug")] [string] $Config = "Release",
