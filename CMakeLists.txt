@@ -59,6 +59,26 @@ else()
 endif()
 
 # -----------------------------------------------------------------------------
+#  AEROSOUND engines (JUCE-free): Glass, Bubbles, Space + demo renderer
+# -----------------------------------------------------------------------------
+add_library(AeroSoundDsp STATIC
+    Source/aerosound/GlassEngine.cpp
+    Source/aerosound/BubbleEngine.cpp
+    Source/aerosound/SpaceReverb.cpp
+    Source/aerosound/AeroSoundProcessor.cpp)
+target_include_directories(AeroSoundDsp PUBLIC Source)
+set_target_properties(AeroSoundDsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_features(AeroSoundDsp PUBLIC cxx_std_17)
+if(NOT MSVC)
+    target_compile_options(AeroSoundDsp PRIVATE -Wall -Wextra $<$<CONFIG:Release>:-O3>)
+endif()
+
+if(AEROGLOW_BUILD_TESTS)
+    add_executable(AeroSoundDemos Tests/RenderDemos.cpp)
+    target_link_libraries(AeroSoundDemos PRIVATE AeroSoundDsp)
+endif()
+
+# -----------------------------------------------------------------------------
 #  Core tests (no JUCE needed — run anywhere, including headless CI)
 # -----------------------------------------------------------------------------
 if(AEROGLOW_BUILD_TESTS)
