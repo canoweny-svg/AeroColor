@@ -127,6 +127,72 @@ void AeroLookAndFeel::drawOrb (juce::Graphics& g, juce::Rectangle<float> r, juce
     g.fillEllipse (hl2);
 }
 
+// -----------------------------------------------------------------------------
+//  Candy-jelly knob: a translucent coloured gel puck.
+//   coloured caustic shadow → saturated thick rim → lighter translucent body
+//   → light focused through the gel at the bottom → big soft top gloss
+//   → sharp curved specular streak → small bottom-right catch-light.
+// -----------------------------------------------------------------------------
+void AeroLookAndFeel::drawJelly (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour col)
+{
+    const auto c = r.getCentre();
+    const float rad = r.getWidth() * 0.5f;
+    const auto deep  = col.darker (0.45f).withMultipliedSaturation (1.15f);
+    const auto light = col.brighter (0.55f).withMultipliedSaturation (0.85f);
+
+    // coloured shadow (light passing through the gel tints the "table")
+    for (int i = 3; i >= 1; --i)
+    {
+        const float k = 1.0f + 0.08f * (float) i;
+        g.setColour (col.withAlpha (0.10f));
+        g.fillEllipse (juce::Rectangle<float> (rad * 2.0f * k, rad * 1.1f * k).withCentre ({ c.x + rad * 0.12f, c.y + rad * 0.62f }));
+    }
+
+    juce::Path body;
+    body.addEllipse (r);
+
+    // translucent body: saturated rim, lighter centre
+    juce::ColourGradient grad (light.withAlpha (0.88f), c.x - rad * 0.15f, c.y + rad * 0.10f,
+                               deep.withAlpha (0.97f), c.x + rad, c.y + rad, true);
+    grad.addColour (0.55, col.withAlpha (0.90f));
+    g.setGradientFill (grad);
+    g.fillPath (body);
+
+    juce::Graphics::ScopedSaveState s (g);
+    g.reduceClipRegion (body);
+
+    // light focused through the gel at the bottom (caustic)
+    auto caustic = juce::Rectangle<float> (rad * 1.3f, rad * 0.65f).withCentre ({ c.x + rad * 0.1f, c.y + rad * 0.55f });
+    g.setGradientFill (juce::ColourGradient (light.brighter (0.4f).withAlpha (0.85f), caustic.getCentreX(), caustic.getCentreY(),
+                                             light.withAlpha (0.0f), caustic.getRight(), caustic.getCentreY(), true));
+    g.fillEllipse (caustic);
+
+    // thick refracting rim
+    g.setColour (deep.withAlpha (0.55f));
+    g.drawEllipse (r.reduced (rad * 0.04f), rad * 0.08f);
+    g.setColour (light.withAlpha (0.55f));
+    g.drawEllipse (r.reduced (rad * 0.13f), rad * 0.035f);
+
+    // big soft top gloss
+    auto gloss = juce::Rectangle<float> (rad * 1.45f, rad * 0.95f).withCentre ({ c.x - rad * 0.08f, c.y - rad * 0.42f });
+    g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.75f), gloss.getCentreX(), gloss.getY(),
+                                             juce::Colours::white.withAlpha (0.0f), gloss.getCentreX(), gloss.getBottom(), false));
+    g.fillEllipse (gloss);
+
+    // sharp curved specular streak (top-left), like light on wet gel
+    juce::Path streak;
+    streak.addCentredArc (c.x, c.y, rad * 0.74f, rad * 0.74f, 0.0f, -1.35f, -0.35f, true);
+    g.setColour (juce::Colours::white.withAlpha (0.92f));
+    g.strokePath (streak, juce::PathStrokeType (juce::jmax (1.2f, rad * 0.075f), juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.fillEllipse (juce::Rectangle<float> (rad * 0.16f, rad * 0.16f).withCentre ({ c.x - rad * 0.30f, c.y - rad * 0.60f }));
+
+    // small bottom-right catch-light
+    juce::Path catchLight;
+    catchLight.addCentredArc (c.x, c.y, rad * 0.80f, rad * 0.80f, 0.0f, 1.9f, 2.5f, true);
+    g.setColour (juce::Colours::white.withAlpha (0.55f));
+    g.strokePath (catchLight, juce::PathStrokeType (juce::jmax (1.0f, rad * 0.05f), juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
 void AeroLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos,
                                         float a0, float a1, juce::Slider& s)
 {
@@ -143,12 +209,11 @@ void AeroLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, 
     const float rad = r.getWidth() * 0.5f;
     const float angle = a0 + pos * (a1 - a0);
 
-    // --- brushed bezel ring ---
-    // glass bezel: white → aqua (no grey metal)
-    g.setGradientFill (juce::ColourGradient (juce::Colour (0xffffffff), c.x, r.getY(), juce::Colour (0xff86cfee), c.x, r.getBottom(), false));
+    // --- clear glass collar (lets the jelly colour show; no metal) ---
+    g.setColour (juce::Colours::white.withAlpha (0.30f));
     g.fillEllipse (r);
-    g.setColour (juce::Colour (0x40000000));
-    g.drawEllipse (r, 1.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.75f));
+    g.drawEllipse (r.reduced (0.5f), 1.2f);
 
     // --- tick marks (big knob) ---
     const float trackR = rad * (big ? 0.84f : 0.80f);
@@ -186,18 +251,19 @@ void AeroLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, 
         g.strokePath (arc, juce::PathStrokeType (thick * 0.7f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
-    // --- glossy aqua orb ---
-    const float orbR = rad * (big ? 0.66f : 0.60f);
-    drawOrb (g, juce::Rectangle<float> (orbR * 2, orbR * 2).withCentre (c), accent.interpolatedWith (colours::aqua, 0.4f));
+    // --- translucent candy-jelly knob ---
+    const float orbR = rad * (big ? 0.66f : 0.62f);
+    drawJelly (g, juce::Rectangle<float> (orbR * 2, orbR * 2).withCentre (c), accent);
 
     // --- pointer: glowing pearl on the orb rim ---
     const float pr = orbR * 0.78f;
     const juce::Point<float> pt (c.x + pr * std::sin (angle), c.y - pr * std::cos (angle));
     const float dot = big ? orbR * 0.11f : juce::jmax (2.5f, orbR * 0.16f);
-    g.setColour (juce::Colours::white.withAlpha (0.35f));
-    g.fillEllipse (juce::Rectangle<float> (dot * 3.0f, dot * 3.0f).withCentre (pt));
+    // pointer: a pressed-in dimple with a white bead (reads like a mark inside the gel)
+    g.setColour (accent.darker (0.6f).withAlpha (0.45f));
+    g.fillEllipse (juce::Rectangle<float> (dot * 2.4f, dot * 2.4f).withCentre (pt));
     g.setColour (juce::Colours::white);
-    g.fillEllipse (juce::Rectangle<float> (dot * 1.6f, dot * 1.6f).withCentre (pt));
+    g.fillEllipse (juce::Rectangle<float> (dot * 1.5f, dot * 1.5f).withCentre (pt));
 
     // --- big knob: value readout inside the orb ---
     if (big)
@@ -206,7 +272,7 @@ void AeroLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w, 
         g.setFont (uiFont (orbR * 0.30f, true));
         const auto txt = s.getTextFromValue (s.getValue());
         auto tr = juce::Rectangle<float> (orbR * 1.6f, orbR * 0.4f).withCentre ({ c.x, c.y + orbR * 0.18f });
-        g.setColour (colours::deepBlue.withAlpha (0.45f));
+        g.setColour (accent.darker (0.8f).withAlpha (0.55f));
         g.drawText (txt, tr.translated (0.0f, 1.5f), juce::Justification::centred);
         g.setColour (juce::Colours::white);
         g.drawText (txt, tr, juce::Justification::centred);

@@ -17,6 +17,14 @@ namespace colours
     inline const juce::Colour ink       { 0xff16303f };   // text on metal
     inline const juce::Colour inkSoft   { 0xff4a6575 };
     inline const juce::Colour glassEdge { 0xb3ffffff };
+
+    // Candy-jelly palette (knobs)
+    inline const juce::Colour jellyBlue    { 0xff1f8fff };
+    inline const juce::Colour jellyTeal    { 0xff17c9a5 };
+    inline const juce::Colour jellyPink    { 0xffff4f8b };
+    inline const juce::Colour jellyMagenta { 0xffc93ad8 };
+    inline const juce::Colour jellyYellow  { 0xffffb21a };
+    inline const juce::Colour jellyPurple  { 0xff7a5cff };
 }
 
 // Component properties understood by the LookAndFeel
@@ -44,6 +52,7 @@ public:
     static juce::Font uiFont (float height, bool bold = false);
     static void drawGlassPanel (juce::Graphics&, juce::Rectangle<float> r, float corner, float opacity = 1.0f);
     static void drawOrb (juce::Graphics&, juce::Rectangle<float> r, juce::Colour tint);
+    static void drawJelly (juce::Graphics&, juce::Rectangle<float> r, juce::Colour colour);
     static juce::Image createBrushedMetal (int width, int height, juce::uint32 seed = 0xAE60);
 };
 

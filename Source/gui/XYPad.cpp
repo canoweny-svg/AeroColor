@@ -135,10 +135,10 @@ void XYPad::paint (juce::Graphics& g)
     const auto p = puckPos();
     for (int i = 3; i >= 1; --i)
     {
-        g.setColour (accent.withAlpha (0.12f * (float) (4 - i)));
+        g.setColour (juce::Colour (0xffff4f8b).withAlpha (0.12f * (float) (4 - i)));
         g.fillEllipse (juce::Rectangle<float> (22.0f + 9.0f * (float) i, 22.0f + 9.0f * (float) i).withCentre (p));
     }
-    AeroLookAndFeel::drawOrb (g, juce::Rectangle<float> (26.0f, 26.0f).withCentre (p), accent);
+    AeroLookAndFeel::drawJelly (g, juce::Rectangle<float> (28.0f, 28.0f).withCentre (p), juce::Colour (0xffff4f8b));
 
     // ---- glass frame gloss ----
     g.setGradientFill (juce::ColourGradient (juce::Colours::white.withAlpha (0.45f), r.getX(), r.getY(),
